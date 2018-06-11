@@ -6,6 +6,10 @@ import numpy as np
 import scipy.sparse.linalg
 import scipy.spatial
 
+from scipy.special import hyp0f1
+from scipy.linalg import solve_triangular
+import math
+
 dimension = 1
 rescaled = False
 func = lambda x: np.power(np.sin(5*x), 2) + np.exp(x/2) # auch mit reinnehmen, als akustisches Beispiel
@@ -226,7 +230,7 @@ class NoneConservative(RBF):
 
         if self.rescale:
             self.au_rescaled = A.T @ np.ones_like(self.in_vals)
-            self.rescaled_interp = np.linalg.solve(C, self.au_rescaled)
+            self.rescaled_interp = np.linalg.solve(self.C, self.au_rescaled)
             self.rescaled_interp = self.rescaled_interp + (1 - np.mean(self.rescaled_interp))
             self.out_vals = self.out_vals / self.rescaled_interp
                     
@@ -326,5 +330,79 @@ class SeparatedConservative(RBF):
 
         return output
         
+
+class RBF_QR_1D(RBF):
+    def __init__(self, shape_param, in_mesh, in_vals):
+        self.shape_param, self.in_vals, self.in_mesh = shape_param, np.copy(in_vals), np.copy(in_mesh)
+        scale_ratio = 1/np.max(np.abs(self.in_mesh))
+        if scale_ratio < 1.0:
+            self.in_mesh *= scale_ratio
+        self.scale_ratio = min(1.0, scale_ratio)
+        in_mesh = self.in_mesh      # This does no longer refer to the parameter of the constructor!
+
+        def get_jmax(type, N, shape_param):
+            mp = np.finfo(type).eps
+            ep = shape_param
+
+            jN = N - 1
+            jmax = 1
+            ratio = ep ** 2
+            while jmax < jN and ratio > 1:
+                jmax += 1
+                ratio *= ep ** 2 / jmax
+            if ratio < 1:  # d_jN was smallest
+                jmax = jN
+            ratio = ep ** 2 / (jmax + 1)
+            while ratio > mp:
+                jmax += 1
+                ratio *= ep ** 2 / (jmax + 1)
+            jmax = max(jmax, jN)  # ensure that K >= N
+            return jmax
+
+        M = N = len(in_mesh)
+        # Step 1: Compute jmax
+        jmax = get_jmax(np.float64, N, shape_param)
+        self.K = K = jmax + 1
+        # Step 2: Assemble C (D gets assembled impicitly)
+        C = np.empty((N, K))
+        # TODO: Both matrices can be assembled using dynamic programming!!
+        for k, j in np.ndindex(N, K):
+            t = 0.5 if j == 0 else 1
+            C[k, j] = t * math.exp(-shape_param ** 2 * in_mesh[k]) * in_mesh[k] ** j * \
+                      hyp0f1(j + 1, shape_param ** 4 * in_mesh[k] ** 2)
+        # Step 3: QR Decomposition of C and R_tilde
+        Q, R = np.linalg.qr(C)
+        R_dot = solve_triangular(R[:, :N], R[:, N: K])
+        R_tilde = np.empty((N, K - N))
+        # TODO: dynamic programming!!
+        for i, j in np.ndindex(N, K - N):
+            R_tilde[i, j] = R_dot[i, j] * (shape_param ** (2 * (N + j - i))) / math.factorial(N + j - i)
+        # Step 4: Evaluate chebyshev polynomials at x_k and compute A
+        T_1 = np.empty((N, M))
+        for i, j in np.ndindex(N, M):
+            T_1[i, j] = math.exp(-in_mesh[j] ** 2 * shape_param ** 2) * self.chebyshev(i, in_mesh[j])
+        T_2 = np.empty((K - N, M))
+        for i, j in np.ndindex(K - N, M):
+            T_2[i, j] = math.exp(-in_mesh[j] ** 2 * shape_param ** 2) * self.chebyshev(N + i, in_mesh[j])
+        A = T_1.T + T_2.T @ R_tilde.T
+        # Step 5: Solve for lambda
+        self.lamb = np.linalg.solve(A, in_vals)
+        # Step 6:  Prepare evaluation
+        self.I_R_tilde = np.hstack((np.identity(N), R_tilde))
+
+    def __call__(self, out_mesh):
+        # Step 6: Evaluate
+        out_mesh = self.scale_ratio * np.copy(out_mesh)
+        out_length = len(out_mesh)
+        T_out = np.empty((self.K, out_length))
+        for i, j in np.ndindex(self.K, out_length):
+            T_out[i, j] = math.exp(-out_mesh[j] ** 2 * self.shape_param ** 2) * self.chebyshev(i, out_mesh[j])
+        Psi_out = self.I_R_tilde @ T_out
+        prediction = Psi_out.T @ self.lamb
+        return prediction
+
+
+    def chebyshev(self, n, x):
+        return math.cos(n * math.acos(x)) if x <= 1 else math.cosh(n * math.acosh(x))
 
 

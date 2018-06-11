@@ -472,12 +472,69 @@ def create_BFs(bf, m, mesh):
         BFs.append( functools.partial(bf, shape=rescaleBasisfunction(bf, m, s)) )
 
     return BFs
+def plot_rbf_qr():
+    #in_mesh = mesh.GaussChebyshev_2D(12, 1, 4, 1)
+    in_mesh = mesh.GaussChebyshev_1D(12, 1, 4, 0)
+    in_vals = func(in_mesh)
+    plot_mesh = np.linspace(np.min(in_mesh) - 0.1, np.max(in_mesh) + 0.1, 2000)  # Use a fine mesh for plotting
 
+    m = 6
+    bf = Gaussian().shaped(m, in_mesh)
+    none_conservative = NoneConservative(bf, in_mesh, in_vals)
+
+    shape_param = 1e-2
+    print("Proposed shape parameter =", shape_param)
+    rbf_qr = RBF_QR_1D(shape_param, in_mesh, in_vals)
+
+    fig1 = plt.figure("RBF-QR Interpolation")
+    ax1 = fig1.add_subplot(111)
+    ax1.set_title("Interpolation on N= " + str(len(in_mesh)) + " nodes with m=" + str(shape_param))
+    ax1.plot(in_mesh, in_vals, "d")
+    ax1.plot(plot_mesh, func(plot_mesh), "-", label="Original Function")
+    ax1.plot(plot_mesh, rbf_qr(plot_mesh), "--", label="Interpolation RBF_QR_1D, m=" + str(shape_param))
+    ax1.set_ylabel("y")
+    ax1.set_xlabel("x")
+    ax1.legend(loc=2)
+    ax1.grid()
+
+    fig2 = plt.figure("Error")
+    ax2 = fig2.add_subplot(111)
+    ax2.set_title("Error of RBF_QR on N=" + str(len(in_mesh)) + " nodes with m=" + str(shape_param))
+    ax2.plot(plot_mesh, np.abs(func(plot_mesh) - rbf_qr(plot_mesh)), "-", label="Error RBF_QR_1D")
+    ax2.plot(plot_mesh, np.full(plot_mesh.shape, np.finfo(np.float64).eps), "-", label="Machine precision (eps)")
+    ax2.set_yscale("log")
+    ax2.set_ylabel("Error")
+    ax2.set_xlabel("x")
+    ax2.legend(loc=2)
+    ax2.grid()
+    plt.show()
+def evalShapeQR():
+    in_mesh = mesh.GaussChebyshev_1D(12, 1, 4, 0)
+    in_vals = func(in_mesh)
+    test_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)
+    shape_parameter_space = np.logspace(0, -10, num=100)
+    rmse = []
+    for shape_param in shape_parameter_space:
+        print("m = ", shape_param)
+        rbf_qr = RBF_QR_1D(shape_param, in_mesh, in_vals)
+        rmse.append(rbf_qr.RMSE(func, test_mesh))
+    rmse = np.array(rmse)
+    plt.plot(shape_parameter_space, rmse, "-", label="RMSE")
+    plt.title("RMSE of RBF-QR for different m, both axes log, mapping " + str(len(in_mesh))
+        + " nodes to " + str(len(test_mesh)) + " nodes")
+    plt.ylabel("RMSE")
+    plt.xlabel("m")
+    plt.yscale("log")
+    plt.xscale("log")
+    plt.legend(loc=2)
+    plt.grid()
+    plt.show()
 def main():
+     evalShapeQR()
+    # plot_rbf_qr()
     # set_save_fig_params()
-
     # plot_basic_consistent()
-    plot_basic_conservative()
+    # plot_basic_conservative()
     # plot_mesh_sizes()
     # plot_rmse_cond()
     # plot_shape_parameters()
