@@ -508,11 +508,13 @@ def plot_rbf_qr():
     ax2.legend(loc=2)
     ax2.grid()
     plt.show()
+
+
 def evalShapeQR():
-    in_mesh = mesh.GaussChebyshev_1D(12, 1, 4, 0)
+    in_mesh = mesh.GaussChebyshev_1D(4, 1, 4, 0)
     in_vals = func(in_mesh)
     test_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)
-    shape_parameter_space = np.logspace(0, -10, num=100)
+    shape_parameter_space = np.logspace(0.8, 0, num=100)
     rmse = []
     for shape_param in shape_parameter_space:
         print("m = ", shape_param)
@@ -520,14 +522,36 @@ def evalShapeQR():
         rmse.append(rbf_qr.RMSE(func, test_mesh))
     rmse = np.array(rmse)
     plt.plot(shape_parameter_space, rmse, "-", label="RMSE")
-    plt.title("RMSE of RBF-QR for different m, both axes log, mapping " + str(len(in_mesh))
+    plt.title("RMSE of RBF-QR for different epsilon, both axes log, mapping " + str(len(in_mesh))
         + " nodes to " + str(len(test_mesh)) + " nodes")
     plt.ylabel("RMSE")
-    plt.xlabel("m")
+    plt.xlabel("epsilon")
     plt.yscale("log")
-    plt.xscale("log")
+    #plt.xscale("log")
     plt.legend(loc=2)
     plt.grid()
+    plt.show()
+def combined():
+    shape_parameter_space = np.logspace(0, -10, num=50)
+    chebgauss_order_space = range(1, 40, 1)
+    X, Y = np.meshgrid(shape_parameter_space, chebgauss_order_space)
+    rmse = np.empty(X.shape)
+    for i, j in tqdm(list(np.ndindex(X.shape))):
+        shape = X[i, j]
+        order = Y[i, j]
+        in_mesh = mesh.GaussChebyshev_1D(order, 1, 4, 0)
+        in_vals = func(in_mesh)
+        test_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 100)
+        rbf_qr = RBF_QR_1D(shape, in_mesh, in_vals)
+        rmse[i, j] = rbf_qr.RMSE(func, test_mesh)
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    # ax.set_xscale("log")
+    surf = ax.plot_surface(np.log10(X), 4 * Y, np.log10(rmse))
+    ax.set_xlabel("Shape parameter (log)")
+    ax.set_ylabel("Meshsize")
+    ax.set_zlabel("RMSE (log)")
+    # plt.colorbar(surf)
     plt.show()
 def main():
      evalShapeQR()
