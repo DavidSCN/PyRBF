@@ -13,6 +13,7 @@ def speedup_and_efficiency(procs, times):
     E = S / procs
     return S, E
 
+
 def plot_supermuc_scaling():
     data = np.genfromtxt("supermuc_scaling.csv",
                          delimiter = ",",
@@ -553,8 +554,14 @@ def combined():
     ax.set_zlabel("RMSE (log)")
     # plt.colorbar(surf)
     plt.show()
+def test_rbf_qr_2d():
+    in_mesh = mesh.GaussChebyshev_1D(4, 1, 4, 0)
+    in_vals = func(in_mesh)
+    test_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)
+    obj = RBF_QR_2D(1e-2, in_mesh, in_vals, is_polar = False)
 def main():
-     evalShapeQR()
+    test_rbf_qr_2d()
+    # evalShapeQR()
     # plot_rbf_qr()
     # set_save_fig_params()
     # plot_basic_consistent()
