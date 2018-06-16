@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse.linalg
 import scipy.spatial
 
-from scipy.special import hyp0f1, hyp1f2, poch
+from scipy.special import hyp0f1, poch
 from scipy.linalg import solve_triangular
 import math
 
@@ -24,7 +24,6 @@ def coordify(array):
     return array[:, np.newaxis] if array.ndim == 1 else array
     # return np.atleast_2d(array).T
            
-
 
 def spacing(a):
     """ Returns spaces around vertices """
@@ -329,234 +328,260 @@ class SeparatedConservative(RBF):
         # ST = inv(P).T @ Pt.T - (QQ @ inv(QR).T) @ (Q.T @ inv(P).T @ Pt.T + V.T)
 
         return output
-        
 
-class RBF_QR_1D(RBF):
-    def __init__(self, shape_param, in_mesh, in_vals):
-        self.shape_param, self.in_vals, self.in_mesh = shape_param, np.copy(in_vals), np.copy(in_mesh)
-        scale_ratio = 1/np.max(np.abs(self.in_mesh))
-        if scale_ratio < 1.0:
-            self.in_mesh *= scale_ratio
-        self.scale_ratio = min(1.0, scale_ratio)
-        in_mesh = self.in_mesh      # This does no longer refer to the parameter of the constructor!
 
-        def get_jmax(type, N, shape_param):
-            mp = np.finfo(type).eps
-            ep = shape_param
-
-            jN = N - 1
-            jmax = 1
-            ratio = ep ** 2
-            while jmax < jN and ratio > 1:
-                jmax += 1
-                ratio *= ep ** 2 / jmax
-            if ratio < 1:  # d_jN was smallest
-                jmax = jN
-            ratio = ep ** 2 / (jmax + 1)
-            while ratio > mp:
-                jmax += 1
-                ratio *= ep ** 2 / (jmax + 1)
-            jmax = max(jmax, jN)  # ensure that K >= N
-            return jmax
-
-        M = N = len(in_mesh)
-        # Step 1: Compute jmax
-        jmax = get_jmax(np.float64, N, shape_param)
-        self.K = K = jmax + 1
-        # Step 2: Assemble C (D gets assembled impicitly)
-        C = np.empty((N, K))
-        # TODO: Both matrices can be assembled using dynamic programming!!
-        for k, j in np.ndindex(N, K):
-            t = 0.5 if j == 0 else 1
-            C[k, j] = t * math.exp(-shape_param ** 2 * in_mesh[k]) * in_mesh[k] ** j * \
-                      hyp0f1(j + 1, shape_param ** 4 * in_mesh[k] ** 2)
-        # Step 3: QR Decomposition of C and R_tilde
+class RBF_QR(RBF):
+    def __init__(self, shape_param, in_mesh, in_vals, min, max):
+        self.shape_param, self.in_mesh, self.in_vals \
+            = shape_param, np.copy(in_mesh), np.copy(in_vals)
+        if min is not None and max is not None:
+            self.scale_ratio = 1 / np.abs([min, max]).max
+        else:
+            scale_ratio = 1 / np.max(np.abs(self.in_mesh[0, :]))     # scale according to r
+            if scale_ratio < 1.0:
+                self.in_mesh *= scale_ratio
+                self.scale_ratio = scale_ratio
+            else:
+                self.scale_ratio = None
+        in_mesh = self.in_mesh      # update
+        self.N = M = N = in_mesh.shape[1]
+        # Step 1: Compute jmax + K
+        self.K = K = self._get_K(np.float64)
+        # Step 2: Assemble C
+        C = self._get_C()
+        # Step 3: QR decomposition of C and R_tilde
         Q, R = np.linalg.qr(C)
-        R_dot = solve_triangular(R[:, :N], R[:, N: K])
-        R_tilde = np.empty((N, K - N))
-        # TODO: dynamic programming!!
-        for i, j in np.ndindex(N, K - N):
-            R_tilde[i, j] = R_dot[i, j] * (shape_param ** (2 * (N + j - i))) / math.factorial(N + j - i)
-        # Step 4: Evaluate chebyshev polynomials at x_k and compute A
-        T_1 = np.empty((N, M))
-        for i, j in np.ndindex(N, M):
-            T_1[i, j] = math.exp(-in_mesh[j] ** 2 * shape_param ** 2) * self.chebyshev(i, in_mesh[j])
-        T_2 = np.empty((K - N, M))
-        for i, j in np.ndindex(K - N, M):
-            T_2[i, j] = math.exp(-in_mesh[j] ** 2 * shape_param ** 2) * self.chebyshev(N + i, in_mesh[j])
-        A = T_1.T + T_2.T @ R_tilde.T
+        R_dot = solve_triangular(R[:, :N], R[:, N:K])
+        D_fraction = self._get_D_fraction()
+        R_tilde = R_dot * D_fraction
+        # Step 4: Evaluate expansion functions on in_mesh and compute A
+        T = np.empty((K, M))
+        for i in range(K):
+            T[i, :] = self._get_T()[i](in_mesh)
+        A = T[:N, :].T + T[N:K, :].T @ R_tilde.T
         # Step 5: Solve for lambda
         self.lamb = np.linalg.solve(A, in_vals)
-        # Step 6:  Prepare evaluation
+        # Step 6: Prepare evaluation
         self.I_R_tilde = np.hstack((np.identity(N), R_tilde))
 
     def __call__(self, out_mesh):
         # Step 6: Evaluate
-        out_mesh = self.scale_ratio * np.copy(out_mesh)
-        out_length = len(out_mesh)
+        out_mesh = np.copy(out_mesh)
+        if self.scale_ratio is not None:
+            out_mesh[0, :] = self.scale_ratio * out_mesh[0, :]
+        out_length = out_mesh.shape[1]
         T_out = np.empty((self.K, out_length))
-        for i, j in np.ndindex(self.K, out_length):
-            T_out[i, j] = math.exp(-out_mesh[j] ** 2 * self.shape_param ** 2) * self.chebyshev(i, out_mesh[j])
+        for i in range(self.K):
+            T_out[i, :] = self._get_T()[i](out_mesh)
         Psi_out = self.I_R_tilde @ T_out
-        prediction = Psi_out.T @ self.lamb
-        return prediction
+        predicition = Psi_out.T @ self.lamb
+        return predicition
 
-    def chebyshev(self, n, x):
-        return math.cos(n * math.acos(x)) if x <= 1 else math.cosh(n * math.acosh(x))
+    def _get_K(self, dtype):
+        """
+        Compute K for a given datatype's precision. This method can assume that self.shape_param
+        is set to the correct value
+        :return: K
+        """
+        raise NotImplementedError()
 
-class RBF_QR_2D(RBF):
-    def __init__(self, shape_param, in_mesh, in_vals, is_polar=False):
-        self.shape_param = shape_param
-        self.in_mesh = in_mesh = np.copy(self.in_mesh)
+    def _get_C(self):
+        """
+        Compute coefficient matrix C.
+        :return: Coefficient matrix of shape (N, K)
+        """
+        raise NotImplementedError()
+
+    def _get_T(self):
+        """
+        Get modified chebyshev polynomials T(x)
+        :return: Array (length K) of functions operating on meshes
+        """
+        raise NotImplementedError()
+
+    def _get_D_fraction(self):
+        """
+        Compute fraction d_{N+j}/d_i of scaling coefficients for 0 <= i < N and 0 <= j < K - N
+        :return: Fraction matrix of shape (N, K-N)
+        """
+        raise NotImplementedError()
+
+    def basisfunction(self):
+        raise NotImplementedError()
+
+
+class RBF_QR_1D(RBF_QR):
+    def __init__(self, shape_param, in_mesh, in_vals, min=None, max=None):
+        if len(in_mesh.shape) <= 1:
+            in_mesh = in_mesh[np.newaxis, :]
+        super(RBF_QR_1D, self).__init__(shape_param, in_mesh, in_vals, min, max)
+    def __call__(self, out_mesh):
+        if len(out_mesh.shape) <= 1:
+            out_mesh = out_mesh[np.newaxis, :]
+        return super(RBF_QR_1D, self).__call__(out_mesh)
+    def _get_K(self, dtype):
+        mp = np.finfo(dtype).eps
+        ep = self.shape_param
+
+        jN = self.N - 1
+        jmax = 1
+        ratio = ep ** 2
+        while jmax < jN and ratio > 1:
+            jmax += 1
+            ratio *= ep ** 2 / jmax
+        if ratio < 1:  # d_jN was smallest
+            jmax = jN
+        ratio = ep ** 2 / (jmax + 1)
+        while ratio > mp:
+            jmax += 1
+            ratio *= ep ** 2 / (jmax + 1)
+        jmax = max(jmax, jN)  # ensure that K >= N
+        return jmax + 1
+
+    def _get_C(self):
+        C = np.empty((self.N, self.K))
+        for k, j in np.ndindex(self.N, self.K):
+            t = 0.5 if j == 0 else 1
+            C[k, j] = t * math.exp(-self.shape_param ** 2 * self.in_mesh[0, k]) * self.in_mesh[0, k] ** j * \
+                  hyp0f1(j + 1, self.shape_param ** 4 * self.in_mesh[0, k] ** 2)
+        return C
+
+    def _get_T(self):
+        def expansion_func(i, x):
+            return np.exp(-x ** 2 * self.shape_param**2) \
+                * np.cos(i * np.arccos(x))
+        return [functools.partial(expansion_func, i) for i in range(self.K)]
+
+    def _get_D_fraction(self):
+        D = np.empty((self.N, self.K - self.N))
+        for i, j in np.ndindex(self.N, self.K - self.N):
+            D[i, j] = self.shape_param ** (2 * (self.N + j - i)) \
+                      / math.factorial(self.N + j - i)
+        return D
+
+class RBF_QR_2D(RBF_QR):
+    def __init__(self, shape_param, in_mesh, in_vals, min=None, max=None, is_polar=False):
+        in_mesh = np.array(in_mesh)     # Fine for now
+        in_vals = np.array(in_vals).reshape(-1)
         if not is_polar:
+            in_mesh = np.copy(in_mesh.reshape((2, -1))) # Copy before you slice
+
             def cart2pol(x, y):
                 rho = np.sqrt(x ** 2 + y ** 2)
                 phi = np.arctan2(y, x)
                 return rho, phi
-            in_mesh[:,0], in_mesh[:, 1] = cart2pol(in_mesh[:, 0], in_mesh[:, 1])
-        else:
-            in_mesh = np.copy(in_mesh)
+            in_mesh[0,:], in_mesh[1, :] = cart2pol(in_mesh[0, :], in_mesh[1, :])
+        super(RBF_QR_2D, self).__init__(shape_param, in_mesh, in_vals, min, max)
 
-        scale_ratio = 1 / np.max(np.abs(self.in_mesh[:, 0]))
-        if scale_ratio < 1.0:
-            self.in_mesh *= scale_ratio
-        self.scale_ratio = min(1.0, scale_ratio)
+    def __call__(self, out_mesh, is_polar=False):
+        out_mesh = np.array(out_mesh) # This is fine for now
+        original_shape = out_mesh.shape
+        out_mesh = out_mesh.reshape((2, -1))
+        if not is_polar:
+            out_mesh = np.copy(out_mesh)  # Copy before you slice
 
-        def get_jmax(type, N, shape_param):
-            mp = np.finfo(type).eps
-            ep = shape_param
+            def cart2pol(x, y):
+                rho = np.sqrt(x ** 2 + y ** 2)
+                phi = np.arctan2(y, x)
+                return rho, phi
 
-            jN = math.ceil(-3/2 + math.sqrt(9/4 + 2 * N - 2))
-            jmax = 1
-            ratio = ep**2/2
-            while jmax < jN and ratio > 1:
-                jmax += 1
-                ratio *= ep**2 / (jmax + (jmax % 2))
-            if ratio < 1:
-                jmax = jN
-            ratio *= ep**2 / (jmax + 1 + (jmax + 1) % 2)
-            # while ratio * math.exp(0.223 * (jmax + 1) + 0.212 * (1 - 3.097 * ((jmax + 1) % 2))) > mp:
-            while ratio * math.exp(0.223 * (jmax + 1) + 0.212 - 0.657 * ((jmax + 1) % 2)) > mp:
-                jmax += 1
-                ratio *= ep**2 / (jmax + 1 + (jmax + 1) % 2)
-            return jmax
+            out_mesh[0, :], out_mesh[1, :] = cart2pol(out_mesh[0, :], out_mesh[1, :])
 
-        M = N = len(in_mesh)
-        # Step 1: Compute jmax
-        jmax = get_jmax(np.float64, N, shape_param)
-        self.K = K = (jmax + 2) * (jmax + 1) / 2
-        assert(K >= N)
-        # Step 2: Assemble C (D gets assembled implicitly)
-        C = np.full((N, K), 42) # Check if that indexing
+        result = super(RBF_QR_2D, self).__call__(out_mesh)
+        return result.reshape(original_shape[1:])
+
+    def _get_K(self, dtype):
+        mp = np.finfo(dtype).eps
+        ep = self.shape_param
+
+        jN = math.ceil(-3 / 2 + math.sqrt(9 / 4 + 2 * self.N - 2))
+        jmax = 1
+        ratio = ep ** 2 / 2
+        while jmax < jN and ratio > 1:
+            jmax += 1
+            ratio *= ep ** 2 / (jmax + (jmax % 2))
+        if ratio < 1:
+            jmax = jN
+        ratio *= ep ** 2 / (jmax + 1 + (jmax + 1) % 2)
+        while ratio * math.exp(0.223 * (jmax + 1) + 0.212 - 0.657 * ((jmax + 1) % 2)) > mp:
+            jmax += 1
+            ratio *= ep ** 2 / (jmax + 1 + (jmax + 1) % 2)
+        K = int((jmax + 2) * (jmax + 1) / 2)
+        return K
+
+    @staticmethod
+    def __index_convert(i):
+        j = math.floor(0.5 * (math.sqrt(1 + 8 * i) - 1))
+        m = i - int(j * (j + 1) / 2)
+        return j, m
+
+
+    def _get_C(self):
+        def hyp1f2(a, b, c, x):
+            eps = np.finfo(np.float64).eps
+            alpha = 1
+            sum = 1  # first summand is always 1.
+            n = 1  # skip first summand
+            while alpha > eps:
+                alpha *= (a + n - 1) / ((b + n - 1) * (c + n - 1) * n) * x
+                sum += alpha
+                n += 1
+            return sum
 
         def sc_at(trigfunc, j, m, k):
             p = j % 2
             b = 1 if 2 * m + p == 0 else 2
             t = 0.5 if j - 2 * m == 0 else 1
             alpha = (j - 2 * m + p + 1) / 2
-            beta = (j - 2 * m + 1, (j + 2 * m + p + 2) / 2)
-            return b * t * math.exp(-shape_param ** 2 + in_mesh[k, 0] ** 2) \
-                   * in_mesh[k, 0] ** j \
-                   * trigfunc((2 * m + p) * in_mesh[k, 1]) \
-                   * hyp1f2(alpha, beta[0], beta[1], shape_param ** 4 * in_mesh[k, 0] ** 2)
+            beta = (j - 2 * m + 1, int((j + 2 * m + p + 2) / 2))    # Note that (j + 2 * m + p + 2) / 2 is always int
+            return b * t * math.exp(-self.shape_param ** 2 + self.in_mesh[0, k] ** 2) \
+                   * self.in_mesh[0, k] ** j \
+                   * trigfunc((2 * m + p) * self.in_mesh[1, k]) \
+                   * hyp1f2(alpha, beta[0], beta[1],
+                            self.shape_param ** 4 * self.in_mesh[0, k] ** 2)
 
         c_at = functools.partial(sc_at, math.cos)
         s_at = functools.partial(sc_at, math.sin)
 
-        for k, j in np.ndindex(N, jmax + 1):
-            for m in range(0, j + 1):
-                C[k, (j+1) * (j+2) / 2] = c_at(j, m, k) if m <= (j - j % 2) / 2 \
-                    else s_at(j, m - (j + j % 2) / 2, k)
+        C = np.empty((self.N, self.K))
+        for k, i in np.ndindex(C.shape):
+            j, m = self.__index_convert(i)
+            C[k, i] = c_at(j, m, k) if m <= (j - j % 2) / 2 \
+                else s_at(j, m - (j + j % 2)/2, k)
+        return C
 
-        assert(np.argwhere(C - 42).size == 0)   # Make sure we forgot no index.
-        # Step 3: QR Decomposition of C and R_tilde
-        Q, R = np.linalg.qr(C)
-        R_dot = solve_triangular(R[:, :N], R[:, N: K])
-        R_tilde = np.empty((N, K - N))
+    def _get_T(self):
+
+        def cheby_at(i, x):
+            j, m = self.__index_convert(i)
+
+            def modified_cheby(trigfunc, j, m, r, Theta):
+                return np.exp(-self.shape_param**2 * r ** 2) * r ** (2 * m) \
+                       * np.cos((j - 2*m) * np.arccos(r)) \
+                       * trigfunc((2 * m + j % 2) * Theta)
+            return modified_cheby(np.cos, j, m, x[0, :], x[1, :]) if m <= (j - j % 2)/2 \
+                else modified_cheby(np.sin, j, m - (j + j % 2)/2, x[0, :], x[1, :])
+        return [functools.partial(cheby_at, i) for i in range(self.K)]
+
+    def _get_D_fraction(self):
         def d_quot(num_idx, denom_idx):
+            num_idx += self.N
             y = np.array([num_idx, denom_idx])
             j = np.floor(0.5*(np.sqrt(1 + 8*y) - 1))
-            m = i - j
-            assert(0 <= m <= j)
-            result = shape_param ** (2 * (j[0] - j[1])) / 2**(j[0] - 2*m[0] - j[1] + 2 * m[1])
+            m = y - (j * (j+1) / 2).astype(int)
+            if m[0] > (j[0] - j[0] % 2)/2:
+                m[0] -= (j[0] + j[0]%2)/2
+            if m[1] > (j[1] - j[1] % 2)/2:
+                m[1] -= (j[1] + j[1]%2)/2
+            assert(0 <= m[0] <= j[0] and 0 <= m[1] <= j[1])
+            result = self.shape_param ** (2 * (j[0] - j[1])) / 2**(j[0] - 2*m[0] - j[1] + 2 * m[1])
             def fact_quot(a, b):
-                assert(math.floor(a) == a and math.floor(b) == b)
-                return poch(b+1, a - b - 1) if a >= b else 1/fact_quot(b, a)
+                assert(math.floor(a) == a and math.floor(b) == b and  b >= 0)
+                return poch(b+1, a - b) if a >= b else 1/fact_quot(b, a)
             result *= fact_quot((j[1] + 2 * m[1] + j[1] % 2)/2, (j[0] + 2 * m[0] + j[0] % 2)/2)
             result *= fact_quot((j[1] - 2 * m[1] - j[1] % 2)/2, (j[0] - 2 * m[0] - j[0] % 2)/2)
             return result
-        # for i, j in np.ndindex(N, K - N):
-        # R_tilde[i, j] = R_dot[i, j] * (shape_param ** (2 * (N + j - i))) / math.factorial(N + j - i)
-        for (i, k) in np.ndindex(N, K):
-            R_tilde[i, k] = R_dot[i,k] * d_quot(N + k, i)
-        # Step 4: Evaluate chebyshev polynomial at x_k and compute A
-
-        def cheby_at(i, k):
-            j = j = math.floor(0.5*(math.sqrt(1 + 8*i) - 1))
-            m = i - j
-
-            def modified_cheby(trigfunc, j, m, x, k):
-
-                def chebyshev(n, x):
-                    return math.cos(n * math.acos(x)) if x <= 1 else math.cosh(n * math.acosh(x))
-
-                return math.exp(-shape_param**2*x[k, 0]**2)*x[k, 0]**(2*m) \
-                    * chebyshev(j - 2*m, x[k, 0]) \
-                    * trigfunc((2 * m + j % 2) * x[k, 1])
-            return modified_cheby(math.cos, j, m, in_mesh, k) if m <= (j - j % 2)/2 \
-                else modified_cheby(math.sin, j, m, in_mesh, k)
-        T_1 = np.empty((N, M))
-        for i, j in np.ndindex(N, M):
-            T_1[i, j] = cheby_at(i, j)
-        T_2 = np.empty((K - N, M))
-        for i, j in np.ndindex(K - N, M):
-            T_2[i, j] = cheby_at(N + i, j)
-        A = T_1.T + T_2.T @ R_tilde.T
-        # Step 5: Solve for lambda
-        self.lamb = np.linalg.solve(A, in_vals)
-        # Step 6:  Prepare evaluation
-        self.I_R_tilde = np.hstack((np.identity(N), R_tilde))
-
-    def __call__(self, out_mesh, is_polar):
-        if not is_polar:
-            def cart2pol(x, y):
-                rho = np.sqrt(x ** 2 + y ** 2)
-                phi = np.arctan2(y, x)
-                return rho, phi
-            out_mesh[:, :] = cart2pol(out_mesh[:, 0], out_mesh[:, 1])
-        else:
-            out_mesh = np.copy(out_mesh)
-
-        def cheby_at(i, k):
-            j = j = math.floor(0.5*(math.sqrt(1 + 8*i) - 1))
-            m = i - j
-
-            def modified_cheby(trigfunc, j, m, x, k):
-
-                def chebyshev(n, x):
-                    return math.cos(n * math.acos(x)) if x <= 1 else math.cosh(n * math.acosh(x))
-
-                return math.exp(-self.shape_param**2*x[k, 0]**2)*x[k, 0]**(2*m) \
-                    * chebyshev(j - 2*m, x[k, 0]) \
-                    * trigfunc((2 * m + j % 2) * x[k, 1])
-            return modified_cheby(math.cos, j, m, out_mesh, k) if m <= (j - j % 2)/2 \
-                else modified_cheby(math.sin, j, m, out_mesh, k)
-
-        out_mesh = self.scale_ratio * np.copy(out_mesh)
-        out_length = len(out_mesh)
-        T_out = np.empty((self.K, out_length))
-        for i, j in np.ndindex(self.K, out_length):
-            T_out[i, j] = cheby_at(i, j)
-        Psi_out = self.I_R_tilde @ T_out
-        prediction = Psi_out.T @ self.lamb
-        if not is_polar:
-            def pol2cart(r, theta):
-                x = r * np.cos(theta)
-                y = r * np.sin(theta)
-                return x, y
-            prediction[:, 0], prediction[:, 1] = pol2cart(prediction[:, 0], prediction[:, 1])
-        return prediction
-
-
-
-
+        D = np.empty((self.N, self.K - self.N))
+        for i, j in np.ndindex(D.shape):
+            D[i, j] = d_quot(j, i)
+        return D

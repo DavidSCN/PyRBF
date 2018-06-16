@@ -3,9 +3,12 @@ from rbf import *
 # from plot_helper import *
 from mesh import GaussChebyshev_1D
 from ipdb import set_trace
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import math
 import mesh
+import tqdm
 
 def speedup_and_efficiency(procs, times):
     T1 = times[0] * procs[0] # Define baseline
@@ -477,7 +480,7 @@ def plot_rbf_qr():
     #in_mesh = mesh.GaussChebyshev_2D(12, 1, 4, 1)
     in_mesh = mesh.GaussChebyshev_1D(12, 1, 4, 0)
     in_vals = func(in_mesh)
-    plot_mesh = np.linspace(np.min(in_mesh) - 0.1, np.max(in_mesh) + 0.1, 2000)  # Use a fine mesh for plotting
+    plot_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)  # Use a fine mesh for plotting
 
     m = 6
     bf = Gaussian().shaped(m, in_mesh)
@@ -555,12 +558,28 @@ def combined():
     # plt.colorbar(surf)
     plt.show()
 def test_rbf_qr_2d():
-    in_mesh = mesh.GaussChebyshev_1D(4, 1, 4, 0)
+    X = np.linspace(-5, 5, 10)
+    Y = np.linspace(-5, 5, 10)
+    in_mesh = np.meshgrid(X, Y)
+    def func(mesh):
+        return np.sin(mesh[0]) - np.cos(mesh[1])
     in_vals = func(in_mesh)
-    test_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)
-    obj = RBF_QR_2D(1e-2, in_mesh, in_vals, is_polar = False)
+    X_test = np.linspace(-3, 3, 100)
+    Y_test = np.linspace(-3, 3, 100)
+    test_mesh = np.meshgrid(X_test, Y_test)
+    obj = RBF_QR_2D(1e-3, in_mesh, in_vals)
+
+    fig = plt.figure()
+    ax = fig.gca(projection="3d")
+    ax.plot_surface(test_mesh[0], test_mesh[1], func(test_mesh))
+
+    fig2 = plt.figure()
+    ax2 = fig2.gca(projection="3d")
+    ax2.plot_surface(test_mesh[0], test_mesh[1], obj(test_mesh))
+
+    plt.show()
 def main():
-    test_rbf_qr_2d()
+     test_rbf_qr_2d()
     # evalShapeQR()
     # plot_rbf_qr()
     # set_save_fig_params()
