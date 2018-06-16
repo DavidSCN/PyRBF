@@ -455,8 +455,10 @@ class RBF_QR_1D(RBF_QR):
     def _get_D_fraction(self):
         D = np.empty((self.N, self.K - self.N))
         for i, j in np.ndindex(self.N, self.K - self.N):
-            D[i, j] = self.shape_param ** (2 * (self.N + j - i)) \
-                      / math.factorial(self.N + j - i)
+            prod = 2
+            for k in range(1, i + 1):
+                prod *= self.shape_param ** 2 / k
+            D[i,j] = prod
         return D
 
 class RBF_QR_2D(RBF_QR):
@@ -564,22 +566,36 @@ class RBF_QR_2D(RBF_QR):
         return [functools.partial(cheby_at, i) for i in range(self.K)]
 
     def _get_D_fraction(self):
+        def prodprod(*args):
+            maxidx = 0
+            for pair in args:
+                assert(len(pair) == 2)
+                assert(int(pair[1]) == pair[1])
+                maxidx = max(maxidx, pair[1])
+            prod = 1
+            for k in range(1, int(maxidx) + 1):
+                for pair in args:
+                    prod *= pair[0](k) if pair[1] >= k else 1
+            return prod
+
         def d_quot(num_idx, denom_idx):
             num_idx += self.N
             y = np.array([num_idx, denom_idx])
             j = np.floor(0.5*(np.sqrt(1 + 8*y) - 1))
             m = y - (j * (j+1) / 2).astype(int)
             if m[0] > (j[0] - j[0] % 2)/2:
-                m[0] -= (j[0] + j[0]%2)/2
+                m[0] -= (j[0] + j[0] % 2)/2
             if m[1] > (j[1] - j[1] % 2)/2:
-                m[1] -= (j[1] + j[1]%2)/2
+                m[1] -= (j[1] + j[1] % 2)/2
             assert(0 <= m[0] <= j[0] and 0 <= m[1] <= j[1])
-            result = self.shape_param ** (2 * (j[0] - j[1])) / 2**(j[0] - 2*m[0] - j[1] + 2 * m[1])
-            def fact_quot(a, b):
-                assert(math.floor(a) == a and math.floor(b) == b and  b >= 0)
-                return poch(b+1, a - b) if a >= b else 1/fact_quot(b, a)
-            result *= fact_quot((j[1] + 2 * m[1] + j[1] % 2)/2, (j[0] + 2 * m[0] + j[0] % 2)/2)
-            result *= fact_quot((j[1] - 2 * m[1] - j[1] % 2)/2, (j[0] - 2 * m[0] - j[0] % 2)/2)
+            eps_power = (lambda x: self.shape_param ** 2, j[0] - j[1])
+            two_power = (lambda x: 0.5, j[0] - 2*m[0] - j[1] + 2*m[1])
+            fact_one_num = (lambda x: x, (j[1] + 2 * m[1] + j[1] % 2)/2)
+            fact_one_denom = (lambda x: 1/x, (j[0] + 2 * m[0] + j[0] % 2)/2)
+            fact_two_num = (lambda x: x, (j[1] - 2 * m[1] - j[1] % 2)/2)
+            fact_two_denom = (lambda x: 1/x, (j[0] - 2 * m[0] - j[0] % 2)/2)
+            result = prodprod(eps_power, two_power, fact_one_num,
+                              fact_one_denom, fact_two_num, fact_two_denom)
             return result
         D = np.empty((self.N, self.K - self.N))
         for i, j in np.ndindex(D.shape):

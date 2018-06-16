@@ -482,11 +482,7 @@ def plot_rbf_qr():
     in_vals = func(in_mesh)
     plot_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)  # Use a fine mesh for plotting
 
-    m = 6
-    bf = Gaussian().shaped(m, in_mesh)
-    none_conservative = NoneConservative(bf, in_mesh, in_vals)
-
-    shape_param = 1e-2
+    shape_param = 8
     print("Proposed shape parameter =", shape_param)
     rbf_qr = RBF_QR_1D(shape_param, in_mesh, in_vals)
 
