@@ -482,7 +482,7 @@ def plot_rbf_qr():
     in_vals = func(in_mesh)
     plot_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)  # Use a fine mesh for plotting
 
-    shape_param = 8
+    shape_param = 1e-2
     print("Proposed shape parameter =", shape_param)
     rbf_qr = RBF_QR_1D(shape_param, in_mesh, in_vals)
 
@@ -507,6 +507,20 @@ def plot_rbf_qr():
     ax2.set_xlabel("x")
     ax2.legend(loc=2)
     ax2.grid()
+
+    fig3 = plt.figure("Basis function")
+    ax3 = fig3.add_subplot(111)
+    new_mesh = np.linspace(-1, 1, 800)
+    ax3.set_title("Basis function no. 5")
+    ax3.plot(in_mesh[5], in_vals[5], "d")
+    basisfuncs = [(i, rbf_qr.basisfunction_i(i)) for i in [0, 1, 2, 3, 4]]
+    for i, basisfunc in basisfuncs:
+        ax3.plot(new_mesh, basisfunc(new_mesh), "-", label="Basisfunction " + str(i))
+    ax3.set_ylabel("y")
+    ax3.set_xlabel("x")
+    ax3.legend(loc=2)
+    ax3.grid()
+
     plt.show()
 
 
@@ -527,7 +541,7 @@ def evalShapeQR():
     plt.ylabel("RMSE")
     plt.xlabel("epsilon")
     plt.yscale("log")
-    #plt.xscale("log")
+    #plt.xscale("log") #mplot3d bug
     plt.legend(loc=2)
     plt.grid()
     plt.show()
@@ -573,11 +587,28 @@ def test_rbf_qr_2d():
     ax2 = fig2.gca(projection="3d")
     ax2.plot_surface(test_mesh[0], test_mesh[1], obj(test_mesh))
 
+    fig3 = plt.figure()
+    ax3 = fig3.gca(projection="3d")
+    basisfuncs = [(i, obj.basisfunction_i(i)) for i in [obj.N - 1]]
+
+    def cart2pol(x, y):
+        rho = np.sqrt(x ** 2 + y ** 2)
+        phi = np.arctan2(y, x)
+        return rho, phi
+    temp_mesh = cart2pol(test_mesh[0].reshape(-1), test_mesh[1].reshape(-1))
+    test_mesh = np.array(temp_mesh)
+    rmax = test_mesh[0, :].max()
+    test_mesh[0, :] /= rmax
+
+
+    for i, basisfunc in basisfuncs:
+        arr = basisfunc(test_mesh).reshape(100,100)
+        ax3.plot_wireframe(test_mesh[0, :].reshape(100, 100), test_mesh[1, :].reshape(100,100), arr)
     plt.show()
 def main():
-     test_rbf_qr_2d()
+    # test_rbf_qr_2d()
     # evalShapeQR()
-    # plot_rbf_qr()
+     plot_rbf_qr()
     # set_save_fig_params()
     # plot_basic_consistent()
     # plot_basic_conservative()

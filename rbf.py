@@ -406,6 +406,13 @@ class RBF_QR(RBF):
         """
         raise NotImplementedError()
 
+    def basisfunction_i(self, i):
+        def eval(i, x):
+            T_at = [self._get_T()[i](x) for i in range(self.K)]
+            return self.I_R_tilde[i, :] @ np.array(T_at)
+
+        return functools.partial(eval, i)
+
     def basisfunction(self):
         raise NotImplementedError()
 
