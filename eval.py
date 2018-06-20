@@ -482,7 +482,7 @@ def plot_rbf_qr():
     in_vals = func(in_mesh)
     plot_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)  # Use a fine mesh for plotting
 
-    shape_param = 8
+    shape_param = 1e-3
     print("Proposed shape parameter =", shape_param)
     rbf_qr = RBF_QR_1D(shape_param, in_mesh, in_vals)
 
@@ -575,9 +575,9 @@ def test_rbf_qr_2d():
 
     plt.show()
 def main():
-     test_rbf_qr_2d()
+    # test_rbf_qr_2d()
     # evalShapeQR()
-    # plot_rbf_qr()
+     plot_rbf_qr()
     # set_save_fig_params()
     # plot_basic_consistent()
     # plot_basic_conservative()

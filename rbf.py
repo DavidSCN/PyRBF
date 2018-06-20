@@ -536,7 +536,7 @@ class RBF_QR_2D(RBF_QR):
             t = 0.5 if j - 2 * m == 0 else 1
             alpha = (j - 2 * m + p + 1) / 2
             beta = (j - 2 * m + 1, int((j + 2 * m + p + 2) / 2))    # Note that (j + 2 * m + p + 2) / 2 is always int
-            return b * t * math.exp(-self.shape_param ** 2 + self.in_mesh[0, k] ** 2) \
+            return b * t * math.exp(-self.shape_param ** 2 * self.in_mesh[0, k] ** 2) \
                    * self.in_mesh[0, k] ** j \
                    * trigfunc((2 * m + p) * self.in_mesh[1, k]) \
                    * hyp1f2(alpha, beta[0], beta[1],
