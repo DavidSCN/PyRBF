@@ -1,5 +1,5 @@
 from rbf import *
-from plot_helper import *
+#from plot_helper import *
 from mesh import GaussChebyshev_1D
 from ipdb import set_trace
 import matplotlib.pyplot as plt
@@ -29,9 +29,9 @@ def plot_basic_conservative():
     in_vals = np.array([1, 1, 1, 1])
     
     none_conservative = NoneConservative(bf, in_mesh, in_vals)
-    # plt.plot(out_mesh, none_conservative(out_mesh), "g-", label = "No Polynomial Interpolant")
-    # plt.plot(out_mesh, none_conservative(out_mesh) - func(out_mesh), "g:", label = "Error none conservative")
-    # plt.plot(out_mesh, none_conservative.weighted_error(func, out_mesh), "g-.", label = "Weighted Error none conservative")
+    plt.plot(out_mesh, none_conservative(out_mesh), "g-", label = "No Polynomial Interpolant")
+    plt.plot(out_mesh, none_conservative(out_mesh) - func(out_mesh), "g:", label = "Error none conservative")
+    plt.plot(out_mesh, none_conservative.weighted_error(func, out_mesh), "g-.", label = "Weighted Error none conservative")
     
     # print("RMSE NoneConservative =", none_conservative.RMSE(func, out_mesh))
     print("none out_vals =", none_conservative(out_mesh))
@@ -63,12 +63,12 @@ def plot_basic_conservative():
     # # plt.plot(out_mesh, in_conservative.polynomial(out_mesh), "b-.", label = "Integrated Polynomial")
     # print("RMSE InConservative =", in_conservative.RMSE(func, out_mesh))
     
-    # plt.legend(loc=2)
-    # plt.ylim( np.amin(func(plot_mesh)) * 0.9, np.amax(func(plot_mesh)) * 1.05 )
-    # plt.title("m = " + str(m))
-    # plt.grid()
-    # plt.savefig("basic.pdf")
-    # plt.show()
+    #plt.legend(loc=2)
+    #plt.ylim( np.amin(func(plot_mesh)) * 0.9, np.amax(func(plot_mesh)) * 1.05 )
+    #plt.title("m = " + str(m))
+    plt.grid()
+    #plt.savefig("basic.pdf")
+    plt.show()
 
 
 plot_basic_conservative()

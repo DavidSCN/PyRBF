@@ -568,14 +568,14 @@ def combined():
     # plt.colorbar(surf)
     plt.show()
 def test_rbf_qr_2d():
-    X = np.linspace(-5, 5, 10)
-    Y = np.linspace(-5, 5, 10)
+    X = np.linspace(-.5, .5, 10)
+    Y = np.linspace(-.5, .5, 10)
     in_mesh = np.meshgrid(X, Y)
     def func(mesh):
         return np.sin(mesh[0]) - np.cos(mesh[1]) + 1.2
     in_vals = func(in_mesh)
-    X_test = np.linspace(-3, 3, 100)
-    Y_test = np.linspace(-3, 3, 100)
+    X_test = np.linspace(-0.2, .2, 100)
+    Y_test = np.linspace(-0.2, .2, 100)
     test_mesh = np.meshgrid(X_test, Y_test)
     obj = RBF_QR_2D(0.001, in_mesh, in_vals)
     """
@@ -586,7 +586,7 @@ def test_rbf_qr_2d():
     fig2 = plt.figure()
     ax2 = fig2.gca(projection="3d")
     ax2.plot_surface(test_mesh[0], test_mesh[1], obj(test_mesh))
-    """
+
     fig3 = plt.figure()
     ax3 = fig3.gca(projection="3d")
     basisfuncs = [(i, obj.old_basis_i(i)) for i in [int(2)]]

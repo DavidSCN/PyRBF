@@ -350,6 +350,7 @@ class RBF_QR(RBF):
         print("K=", K)
         # Step 2: Assemble C
         C = self._get_C()
+        C = np.abs(C)
         # Step 3: QR decomposition of C and R_tilde
         Q, R = np.linalg.qr(C)
         R_dot = solve_triangular(R[:, :N], R[:, N:K])
