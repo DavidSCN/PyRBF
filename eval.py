@@ -578,7 +578,7 @@ def test_rbf_qr_2d():
     Y_test = np.linspace(-3, 3, 100)
     test_mesh = np.meshgrid(X_test, Y_test)
     obj = RBF_QR_2D(1e-3, in_mesh, in_vals)
-
+    """
     fig = plt.figure()
     ax = fig.gca(projection="3d")
     ax.plot_surface(test_mesh[0], test_mesh[1], func(test_mesh))
@@ -586,10 +586,10 @@ def test_rbf_qr_2d():
     fig2 = plt.figure()
     ax2 = fig2.gca(projection="3d")
     ax2.plot_surface(test_mesh[0], test_mesh[1], obj(test_mesh))
-
+    """
     fig3 = plt.figure()
     ax3 = fig3.gca(projection="3d")
-    basisfuncs = [(i, obj.basisfunction_i(i)) for i in [obj.N - 1]]
+    basisfuncs = [(i, obj.basisfunction_i(i)) for i in [obj.N - 30]]
 
     def cart2pol(x, y):
         rho = np.sqrt(x ** 2 + y ** 2)
@@ -600,15 +600,21 @@ def test_rbf_qr_2d():
     rmax = test_mesh[0, :].max()
     test_mesh[0, :] /= rmax
 
-
     for i, basisfunc in basisfuncs:
         arr = basisfunc(test_mesh).reshape(100,100)
-        ax3.plot_wireframe(test_mesh[0, :].reshape(100, 100), test_mesh[1, :].reshape(100,100), arr)
+
+        def pol2cart(rho, phi):
+            x = rho * np.cos(phi)
+            y = rho * np.sin(phi)
+            return (x, y)
+        plot_mesh = pol2cart(test_mesh[0, :] * rmax, test_mesh[1,:])
+        plot_mesh = np.array(plot_mesh)
+        ax3.plot_wireframe(plot_mesh[0, :].reshape(100, 100), plot_mesh[1, :].reshape(100,100), arr)
     plt.show()
 def main():
-    # test_rbf_qr_2d()
+     test_rbf_qr_2d()
     # evalShapeQR()
-     plot_rbf_qr()
+    # plot_rbf_qr()
     # set_save_fig_params()
     # plot_basic_consistent()
     # plot_basic_conservative()
