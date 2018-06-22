@@ -347,6 +347,7 @@ class RBF_QR(RBF):
         self.N = M = N = in_mesh.shape[1]
         # Step 1: Compute jmax + K
         self.K = K = self._get_K(np.float64)
+        print("K=", K)
         # Step 2: Assemble C
         C = self._get_C()
         # Step 3: QR decomposition of C and R_tilde
@@ -412,7 +413,13 @@ class RBF_QR(RBF):
             return self.I_R_tilde[i, :] @ np.array(T_at)
 
         return functools.partial(eval, i)
-
+    def old_basis_i(self, i):
+        def eval(i, x):
+            T_at = [self._get_T()[i](x) for i in range(self.K)]
+            D = self._get_D()
+            C = self._get_C()
+            return (C @ D @ np.array(T_at))[i]
+        return functools.partial(eval, i)
     def basisfunction(self):
         raise NotImplementedError()
 
@@ -463,9 +470,18 @@ class RBF_QR_1D(RBF_QR):
         D = np.empty((self.N, self.K - self.N))
         for i, j in np.ndindex(self.N, self.K - self.N):
             prod = 2
-            for k in range(1, i + 1):
+            for k in range(1, self.N + j - i + 1):
                 prod *= self.shape_param ** 2 / k
-            D[i,j] = prod
+            D[i, j] = prod
+        return D
+
+    def _get_D(self):
+        D = np.zeros((self.K, self.K))
+        for i in range(self.K):
+            prod = 2
+            for k in range(1, i + 1):
+                prod *= self.shape_param**2 / k
+            D[i, i] = prod
         return D
 
 class RBF_QR_2D(RBF_QR):
@@ -607,4 +623,26 @@ class RBF_QR_2D(RBF_QR):
         D = np.empty((self.N, self.K - self.N))
         for i, j in np.ndindex(D.shape):
             D[i, j] = d_quot(j, i)
+        return D
+    def _get_D(self):
+        def prodprod(*args):
+            maxidx = 0
+            for pair in args:
+                assert(len(pair) == 2)
+                assert(int(pair[1]) == pair[1])
+                maxidx = max(maxidx, pair[1])
+            prod = 1
+            for k in range(1, int(maxidx) + 1):
+                for pair in args:
+                    prod *= pair[0](k) if pair[1] >= k else 1
+            return prod
+        D = np.zeros((self.K, self.K))
+        for i in range(self.K):
+            j, m = self.__index_convert(i)
+            eps_power = (lambda x: self.shape_param**2, j)
+            two_power = (lambda x: 0.5, j - 2*m + 1)
+            fact_one = (lambda x: 1/x, (j + 2 * m + j % 2)/2)
+            fact_two = (lambda x: 1/x, (j - 2*m - j % 2) /2)
+            ratio = prodprod(eps_power, two_power, fact_one, fact_two)
+            D[i,i] = ratio
         return D

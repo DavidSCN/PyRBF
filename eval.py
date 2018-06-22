@@ -512,8 +512,8 @@ def plot_rbf_qr():
     ax3 = fig3.add_subplot(111)
     new_mesh = np.linspace(-1, 1, 800)
     ax3.set_title("Basis function no. 5")
-    ax3.plot(in_mesh[5], in_vals[5], "d")
-    basisfuncs = [(i, rbf_qr.basisfunction_i(i)) for i in [0, 1, 2, 3, 4]]
+    #ax3.plot(in_mesh[5], in_vals[5], "d")
+    basisfuncs = [(i, rbf_qr.old_basis_i(i)) for i in [0, 1, 2, 3, 4]]
     for i, basisfunc in basisfuncs:
         ax3.plot(new_mesh, basisfunc(new_mesh), "-", label="Basisfunction " + str(i))
     ax3.set_ylabel("y")
@@ -572,12 +572,12 @@ def test_rbf_qr_2d():
     Y = np.linspace(-5, 5, 10)
     in_mesh = np.meshgrid(X, Y)
     def func(mesh):
-        return np.sin(mesh[0]) - np.cos(mesh[1])
+        return np.sin(mesh[0]) - np.cos(mesh[1]) + 1.2
     in_vals = func(in_mesh)
     X_test = np.linspace(-3, 3, 100)
     Y_test = np.linspace(-3, 3, 100)
     test_mesh = np.meshgrid(X_test, Y_test)
-    obj = RBF_QR_2D(1e-3, in_mesh, in_vals)
+    obj = RBF_QR_2D(0.001, in_mesh, in_vals)
     """
     fig = plt.figure()
     ax = fig.gca(projection="3d")
@@ -589,7 +589,7 @@ def test_rbf_qr_2d():
     """
     fig3 = plt.figure()
     ax3 = fig3.gca(projection="3d")
-    basisfuncs = [(i, obj.basisfunction_i(i)) for i in [obj.N - 30]]
+    basisfuncs = [(i, obj.old_basis_i(i)) for i in [int(2)]]
 
     def cart2pol(x, y):
         rho = np.sqrt(x ** 2 + y ** 2)
