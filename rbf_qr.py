@@ -3,24 +3,16 @@ import functools
 import numpy as np
 from scipy.special import hyp0f1
 from scipy.linalg import solve_triangular
+from coordinate_helper import *
 import math
 
 
 from tqdm import tqdm
 
 class RBF_QR(RBF):
-    def __init__(self, shape_param, in_mesh, in_vals, min, max):
-        self.shape_param, self.in_mesh, self.in_vals \
-            = shape_param, np.copy(in_mesh), np.copy(in_vals)
-        if min is not None and max is not None:
-            self.scale_ratio = 1 / np.abs([min, max]).max
-        else:
-            scale_ratio = 1 / np.max(np.abs(self.in_mesh[0, :]))     # scale according to r
-            if scale_ratio < 1.0:
-                self.in_mesh[0, :] *= scale_ratio
-                self.scale_ratio = scale_ratio
-            else:
-                self.scale_ratio = None
+    def __init__(self, shape_param, in_mesh, in_vals, translate, scale):
+        self.shape_param, self.in_mesh, self.in_vals, self.translate, self.scale \
+            = shape_param, np.copy(in_mesh), np.copy(in_vals), translate, scale
         in_mesh = self.in_mesh      # update
         self.N = M = N = in_mesh.shape[1]
         # Step 1: Compute jmax + K
@@ -45,9 +37,6 @@ class RBF_QR(RBF):
 
     def __call__(self, out_mesh):
         # Step 6: Evaluate
-        out_mesh = np.copy(out_mesh)
-        if self.scale_ratio is not None:
-            out_mesh[0, :] = self.scale_ratio * out_mesh[0, :]
         out_length = out_mesh.shape[1]
         T_out = np.empty((self.K, out_length))
         for i in range(self.K):
@@ -55,16 +44,7 @@ class RBF_QR(RBF):
         Psi_out = self.I_R_tilde @ T_out
         predicition = Psi_out.T @ self.lamb
         return predicition
-    @staticmethod
-    def _coordinate_transform(x, x_0, size):
-        assert(x.shape[0] == len(x_0) == len(size))
-        dim = len(x_0)
-        length = x.shape[1]
-        unit_x = np.empty((dim, length))
-        for i in range(dim):
-            unit_x[i, :] = (x[i, :] - x_0[i]) * math.sqrt(2) / size[i]
-        assert(np.all(np.abs(unit_x) <= 1))
-        return unit_x
+
     def _get_K(self, dtype):
         """
         Compute K for a given datatype's precision. This method can assume that self.shape_param
@@ -119,13 +99,18 @@ class RBF_QR(RBF):
 
 
 class RBF_QR_1D(RBF_QR):
-    def __init__(self, shape_param, in_mesh, in_vals, min=None, max=None):
+    def __init__(self, shape_param, in_mesh, in_vals, center=None, extents=None):
         if len(in_mesh.shape) <= 1:
             in_mesh = in_mesh[np.newaxis, :]
-        super(RBF_QR_1D, self).__init__(shape_param, in_mesh, in_vals, min, max)
+        if center is None or extents is None:
+            center, extents = get_center_extents(in_mesh)
+        in_mesh, translate, scale = translate_scale_hyperrectangle(np.copy(in_mesh), center, extents)
+        assert(in_mesh[0, :].max() <= 1)
+        super(RBF_QR_1D, self).__init__(shape_param, in_mesh, in_vals, translate, scale)
     def __call__(self, out_mesh):
         if len(out_mesh.shape) <= 1:
             out_mesh = out_mesh[np.newaxis, :]
+        out_mesh = translate_scale_with(out_mesh, self.translate, self.scale)
         return super(RBF_QR_1D, self).__call__(out_mesh)
     def _get_K(self, dtype):
         mp = np.finfo(dtype).eps
@@ -178,34 +163,36 @@ class RBF_QR_1D(RBF_QR):
             D[i, i] = prod
         return D
 
+
 class RBF_QR_2D(RBF_QR):
-    def __init__(self, shape_param, in_mesh, in_vals, min=None, max=None, is_polar=False):
-        in_mesh = np.array(in_mesh)     # Fine for now
+    def __init__(self, shape_param, in_mesh, in_vals, center = None, extents = None):
+        in_mesh = np.array(in_mesh).reshape((2, -1))
         in_vals = np.array(in_vals).reshape(-1)
-        if not is_polar:
-            in_mesh = np.copy(in_mesh.reshape((2, -1))) # Copy before you slice
+        if center is None or extents is None:
+            center, extents = get_center_extents(in_mesh)
+        in_mesh, translate, scale = translate_scale_hyperrectangle(in_mesh, center, extents)
 
-            def cart2pol(x, y):
-                rho = np.sqrt(x ** 2 + y ** 2)
-                phi = np.arctan2(y, x)
-                return rho, phi
-            in_mesh[0,:], in_mesh[1, :] = cart2pol(in_mesh[0, :], in_mesh[1, :])
-        super(RBF_QR_2D, self).__init__(shape_param, in_mesh, in_vals, min, max)
+        def cart2pol(mesh):
+            result = np.empty(mesh.shape)
+            result[0, :] = np.sqrt(mesh[0, :] ** 2 + mesh[1, :] ** 2)
+            result[1, :] = np.arctan2(mesh[1, :], mesh[0, :])
+            return result
+        in_mesh = cart2pol(in_mesh)
+        assert(in_mesh[0, :].max() <= 1)
+        super(RBF_QR_2D, self).__init__(shape_param, in_mesh, in_vals, translate, scale)
 
-    def __call__(self, out_mesh, is_polar=False):
-        out_mesh = np.array(out_mesh) # This is fine for now
-        original_shape = out_mesh.shape
+    def __call__(self, out_mesh):
+        out_mesh = translate_scale_with(np.array(out_mesh), self.translate, self.scale)
+        original_shape = np.array(out_mesh).shape
         out_mesh = out_mesh.reshape((2, -1))
-        if not is_polar:
-            out_mesh = np.copy(out_mesh)  # Copy before you slice
 
-            def cart2pol(x, y):
-                rho = np.sqrt(x ** 2 + y ** 2)
-                phi = np.arctan2(y, x)
-                return rho, phi
-
-            out_mesh[0, :], out_mesh[1, :] = cart2pol(out_mesh[0, :], out_mesh[1, :])
-
+        def cart2pol(mesh):
+            result = np.empty(mesh.shape)
+            result[0, :] = np.sqrt(mesh[0, :] ** 2 + mesh[1, :] ** 2)
+            result[1, :] = np.arctan2(mesh[1, :], mesh[0, :])
+            return result
+        out_mesh = cart2pol(out_mesh)
+        assert(out_mesh[0, :].max() <= 1)
         result = super(RBF_QR_2D, self).__call__(out_mesh)
         return result.reshape(original_shape[1:])
 

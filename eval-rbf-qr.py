@@ -13,14 +13,14 @@ def func(x):
 
 def plot_rbf_qr():
     # in_mesh = mesh.GaussChebyshev_2D(12, 1, 4, 1)
-    in_mesh = mesh.GaussChebyshev_1D(12, 1, 4, 0)
+    in_mesh = mesh.GaussChebyshev_1D(12, 1, 4, 0) - 4
     in_vals = func(in_mesh)
     plot_mesh = np.linspace(np.min(in_mesh), np.max(in_mesh), 2000)  # Use a fine mesh for plotting
 
-    shape_param = 10
+    shape_param = 1e-3
     print("Proposed shape parameter =", shape_param)
     rbf_qr = RBF_QR_1D(shape_param, in_mesh, in_vals)
-    """
+
     fig1 = plt.figure("RBF-QR Interpolation")
     ax1 = fig1.add_subplot(111)
     ax1.set_title("Interpolation on N= " + str(len(in_mesh)) + " nodes with m=" + str(shape_param))
@@ -42,19 +42,6 @@ def plot_rbf_qr():
     ax2.set_xlabel("x")
     ax2.legend(loc=2)
     ax2.grid()
-    """
-    fig3 = plt.figure("Basis function")
-    ax3 = fig3.add_subplot(111)
-    new_mesh = np.linspace(-1, 1, 800)
-    ax3.set_title("Basis function no. 5")
-    # ax3.plot(in_mesh[5], in_vals[5], "d")
-    basisfuncs = [(i, rbf_qr.old_basis_i(i)) for i in [0, 1, 2, 3, 4]]
-    for i, basisfunc in basisfuncs:
-        ax3.plot(new_mesh, basisfunc(new_mesh), "-", label="Basisfunction " + str(i))
-    ax3.set_ylabel("y")
-    ax3.set_xlabel("x")
-    ax3.legend(loc=2)
-    ax3.grid()
 
     plt.show()
 
@@ -97,28 +84,26 @@ def combined():
         rmse[i, j] = rbf_qr.RMSE(func, test_mesh)
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    # ax.set_xscale("log")
-    surf = ax.plot_surface(np.log10(X), 4 * Y, np.log10(rmse))
+    ax.plot_surface(np.log10(X), 4 * Y, np.log10(rmse))
     ax.set_xlabel("Shape parameter (log)")
     ax.set_ylabel("Meshsize")
     ax.set_zlabel("RMSE (log)")
-    # plt.colorbar(surf)
     plt.show()
 
 
 def test_rbf_qr_2d():
-    halflength = math.sqrt(2) * 2
-    X = np.linspace(-halflength, halflength, 10)
-    Y = np.linspace(-halflength, halflength, 10)
+    halflength = 5
+    X = np.linspace(-halflength, halflength, 20) + 10
+    Y = np.linspace(-halflength, halflength, 20) + 10
     in_mesh = np.meshgrid(X, Y)
 
     def func(mesh):
         return np.sin(mesh[0]) - np.cos(mesh[1])
 
     in_vals = func(in_mesh)
-    halflength = math.sqrt(2) * 2 - 0.5
-    X_test = np.linspace(-halflength, halflength, 100)
-    Y_test = np.linspace(-halflength, halflength, 100)
+    halflength = 4
+    X_test = np.linspace(-halflength, halflength, 100) + 10
+    Y_test = np.linspace(-halflength, halflength, 100) + 10
     test_mesh = np.meshgrid(X_test, Y_test)
     obj = RBF_QR_2D(0.001, in_mesh, in_vals)
 
@@ -131,6 +116,12 @@ def test_rbf_qr_2d():
     ax2 = fig2.gca(projection="3d")
     ax2.set_title("Interpolation")
     ax2.plot_surface(test_mesh[0], test_mesh[1], obj(test_mesh))
+
+    fig3 = plt.figure()
+    ax3 = fig3.gca(projection="3d")
+    ax3.set_title("Error, log")
+    ax3.plot_surface(test_mesh[0], test_mesh[1], np.log(np.abs(obj(test_mesh) - func(test_mesh))))
+
     plt.show()
 
 
