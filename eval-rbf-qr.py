@@ -93,8 +93,8 @@ def combined():
 
 def test_rbf_qr_2d():
     halflength = 5
-    X = np.linspace(-halflength, halflength, 20) + 10
-    Y = np.linspace(-halflength, halflength, 20) + 10
+    X = np.linspace(-halflength, halflength, 9) + 10
+    Y = np.linspace(-halflength, halflength, 9) + 10
     in_mesh = np.meshgrid(X, Y)
 
     def func(mesh):
@@ -122,6 +122,7 @@ def test_rbf_qr_2d():
     ax3.set_title("Error, log")
     ax3.plot_surface(test_mesh[0], test_mesh[1], np.log(np.abs(obj(test_mesh) - func(test_mesh))))
 
+    print("RMSE: ", obj.RMSE(func, test_mesh))
     plt.show()
 
 
@@ -168,7 +169,29 @@ def check_basisfun_2d():
     plt.show()
 
 
+def test_rbf_qr_3d():
+    def func(mesh):
+        return np.sin(mesh[0, :]) - np.cos(mesh[1, :]) + np.sin(mesh[2, :])
+    halflength = math.sqrt(3) / 3 - 0.1
+    X = np.linspace(-halflength, halflength, 8)
+    Y = np.linspace(-halflength, halflength, 8)
+    Z = np.linspace(-halflength, halflength, 8)
+    in_mesh = np.array(np.meshgrid(X, Y, Z))
+    in_vals = func(in_mesh)
+
+    halflength -= 0.2   # rigged test mesh ;)
+    X_test = np.linspace(-halflength, halflength, 12)
+    Y_test = np.linspace(-halflength, halflength, 12)
+    Z_test = np.linspace(-halflength, halflength, 12)
+    test_mesh = np.array(np.meshgrid(X_test, Y_test, Z_test))
+
+    rbf_qr_3d = RBF_QR_3D(1e-3, in_mesh, in_vals)
+    rmse = rbf_qr_3d.RMSE(func, test_mesh)
+    print(rmse)
+
+
 def main():
+    # test_rbf_qr_3d()
      test_rbf_qr_2d()
     # evalShapeQR()
     # plot_rbf_qr()
