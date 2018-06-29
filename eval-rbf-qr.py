@@ -172,17 +172,17 @@ def check_basisfun_2d():
 def test_rbf_qr_3d():
     def func(mesh):
         return np.sin(mesh[0, :]) - np.cos(mesh[1, :]) + np.sin(mesh[2, :])
-    halflength = math.sqrt(3) / 3 - 0.1
-    X = np.linspace(-halflength, halflength, 8)
-    Y = np.linspace(-halflength, halflength, 8)
-    Z = np.linspace(-halflength, halflength, 8)
+    halflength = 1
+    X = np.linspace(-halflength, halflength, 4) + 1
+    Y = np.linspace(-halflength, halflength, 4) + 1
+    Z = np.linspace(-halflength, halflength, 4) + 1
     in_mesh = np.array(np.meshgrid(X, Y, Z))
     in_vals = func(in_mesh)
 
     halflength -= 0.2   # rigged test mesh ;)
-    X_test = np.linspace(-halflength, halflength, 12)
-    Y_test = np.linspace(-halflength, halflength, 12)
-    Z_test = np.linspace(-halflength, halflength, 12)
+    X_test = np.linspace(-halflength, halflength, 10) + 1
+    Y_test = np.linspace(-halflength, halflength, 10) + 1
+    Z_test = np.linspace(-halflength, halflength, 10) + 1
     test_mesh = np.array(np.meshgrid(X_test, Y_test, Z_test))
 
     rbf_qr_3d = RBF_QR_3D(1e-3, in_mesh, in_vals)
@@ -191,8 +191,8 @@ def test_rbf_qr_3d():
 
 
 def main():
-    # test_rbf_qr_3d()
-     test_rbf_qr_2d()
+     test_rbf_qr_3d()
+    # test_rbf_qr_2d()
     # evalShapeQR()
     # plot_rbf_qr()
 

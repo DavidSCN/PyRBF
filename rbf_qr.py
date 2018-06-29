@@ -1,13 +1,10 @@
+import numpy as np
 from rbf import RBF
 import functools
-import numpy as np
 from scipy.special import hyp0f1, lpmn
 from scipy.linalg import solve_triangular
 from coordinate_helper import *
 import math
-
-from tqdm import tqdm
-
 
 class RBF_QR(RBF):
     def __init__(self, shape_param, in_mesh, in_vals, translate, scale):
@@ -177,14 +174,7 @@ class RBF_QR_2D(RBF_QR):
         if center is None or extents is None:
             center, extents = get_center_extents(in_mesh)
         in_mesh, translate, scale = translate_scale_hyperrectangle(in_mesh, center, extents)
-
-        def cart2pol(mesh):
-            result = np.empty(mesh.shape)
-            result[0, :] = np.sqrt(mesh[0, :] ** 2 + mesh[1, :] ** 2)
-            result[1, :] = np.arctan2(mesh[1, :], mesh[0, :])
-            return result
-
-        in_mesh = cart2pol(in_mesh)
+        in_mesh = cart2polar(in_mesh)
         assert (in_mesh[0, :].max() <= 1)
         super(RBF_QR_2D, self).__init__(shape_param, in_mesh, in_vals, translate, scale)
 
@@ -192,14 +182,7 @@ class RBF_QR_2D(RBF_QR):
         out_mesh = translate_scale_with(np.array(out_mesh), self.translate, self.scale)
         original_shape = np.array(out_mesh).shape
         out_mesh = out_mesh.reshape((2, -1))
-
-        def cart2pol(mesh):
-            result = np.empty(mesh.shape)
-            result[0, :] = np.sqrt(mesh[0, :] ** 2 + mesh[1, :] ** 2)
-            result[1, :] = np.arctan2(mesh[1, :], mesh[0, :])
-            return result
-
-        out_mesh = cart2pol(out_mesh)
+        out_mesh = cart2polar(out_mesh)
         assert (out_mesh[0, :].max() <= 1)
         result = super(RBF_QR_2D, self).__call__(out_mesh)
         return result.reshape(original_shape[1:])
@@ -279,17 +262,6 @@ class RBF_QR_2D(RBF_QR):
         return [functools.partial(cheby_at, i) for i in range(self.K)]
 
     def _get_D_fraction(self):
-        def prodprod(*args):
-            maxidx = 0
-            for pair in args:
-                assert (len(pair) == 2)
-                assert (int(pair[1]) == pair[1])
-                maxidx = max(maxidx, pair[1])
-            prod = 1
-            for k in range(1, int(maxidx) + 1):
-                for pair in args:
-                    prod *= pair[0](k) if pair[1] >= k else 1
-            return prod
 
         def d_quot(num_idx, denom_idx):
             num_idx += self.N
@@ -307,8 +279,8 @@ class RBF_QR_2D(RBF_QR):
             fact_one_denom = (lambda x: 1 / x, (j[0] + 2 * m[0] + j[0] % 2) / 2)
             fact_two_num = (lambda x: x, (j[1] - 2 * m[1] - j[1] % 2) / 2)
             fact_two_denom = (lambda x: 1 / x, (j[0] - 2 * m[0] - j[0] % 2) / 2)
-            result = prodprod(eps_power, two_power, fact_one_num,
-                              fact_one_denom, fact_two_num, fact_two_denom)
+            result = RBF_QR_2D.__prodprod(eps_power, two_power, fact_one_num,
+                            fact_one_denom, fact_two_num, fact_two_denom)
             return result
 
         D = np.empty((self.N, self.K - self.N))
@@ -317,17 +289,6 @@ class RBF_QR_2D(RBF_QR):
         return D
 
     def _get_D(self):
-        def prodprod(*args):
-            maxidx = 0
-            for pair in args:
-                assert (len(pair) == 2)
-                assert (int(pair[1]) == pair[1])
-                maxidx = max(maxidx, pair[1])
-            prod = 1
-            for k in range(1, int(maxidx) + 1):
-                for pair in args:
-                    prod *= pair[0](k) if pair[1] >= k else 1
-            return prod
 
         D = np.zeros((self.K, self.K))
         for i in range(self.K):
@@ -336,41 +297,41 @@ class RBF_QR_2D(RBF_QR):
             two_power = (lambda x: 0.5, j - 2 * m + 1)
             fact_one = (lambda x: 1 / x, (j + 2 * m + j % 2) / 2)
             fact_two = (lambda x: 1 / x, (j - 2 * m - j % 2) / 2)
-            ratio = prodprod(eps_power, two_power, fact_one, fact_two)
+            ratio = RBF_QR_2D.__prodprod(eps_power, two_power, fact_one, fact_two)
             D[i, i] = ratio
         return D
 
+    @staticmethod
+    def __prodprod(*args):
+        maxidx = 0
+        for pair in args:
+            assert (len(pair) == 2)
+            assert (int(pair[1]) == pair[1])
+            maxidx = max(maxidx, pair[1])
+        prod = 1
+        for k in range(1, int(maxidx) + 1):
+            for pair in args:
+                prod *= pair[0](k) if pair[1] >= k else 1
+        return prod
 
 class RBF_QR_3D(RBF_QR):
     def __init__(self, shape_param, in_mesh, in_vals, center=None, extents=None):
         in_mesh = np.array(in_mesh).reshape(3, -1)
         in_vals = np.array(in_vals).reshape(-1)
-
-        def cart2sph(mesh):
-            sphmesh = np.empty(mesh.shape)
-            sphmesh[0, :] = np.sqrt(mesh[0, :] ** 2 + mesh[1, :] ** 2 + mesh[2, :] ** 2)  # r
-            sphmesh[1, :] = np.arccos(np.nan_to_num(mesh[2, :] / sphmesh[0, :]))  # theta
-            sphmesh[2, :] = np.arctan2(mesh[1, :], mesh[0, :])  # phi
-            return sphmesh
-
-        in_mesh = cart2sph(np.copy(in_mesh))
-
-        super(RBF_QR_3D, self).__init__(shape_param, in_mesh, in_vals
-                                        , [0, 0, 0], [1, 1, 1])
+        if center is None or extents is None:
+            center, extents = get_center_extents(in_mesh)
+        in_mesh, translate, scale = translate_scale_hyperrectangle(in_mesh, center, extents)
+        in_mesh = cart2polar(in_mesh)
+        assert (in_mesh[0, :].max() <= 1)
+        super().__init__(shape_param, in_mesh, in_vals, translate, scale)
 
     def __call__(self, out_mesh):
+        out_mesh = translate_scale_with(np.array(out_mesh), self.translate, self.scale)
         original_shape = out_mesh.shape
         out_mesh = np.array(out_mesh).reshape(3, -1)
-
-        def cart2sph(mesh):
-            sphmesh = np.empty(mesh.shape)
-            sphmesh[0, :] = np.sqrt(mesh[0, :] ** 2 + mesh[1, :] ** 2 + mesh[2, :] ** 2)  # r
-            sphmesh[1, :] = np.arccos(np.nan_to_num(mesh[2, :] / sphmesh[0, :]))  # theta
-            sphmesh[2, :] = np.arctan2(mesh[1, :], mesh[0, :])  # phi
-            return sphmesh
-
-        out_mesh = cart2sph(np.copy(out_mesh))
-        prediction = super(RBF_QR_3D, self).__call__(out_mesh)
+        out_mesh = cart2polar(out_mesh)
+        assert (out_mesh[0, :].max() <= 1)
+        prediction = super().__call__(out_mesh)
         return prediction.reshape(original_shape[1:])
 
     def _get_K(self, dtype):
