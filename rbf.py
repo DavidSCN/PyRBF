@@ -173,7 +173,6 @@ class IntegratedConsistent(RBF):
     
         invec = np.hstack((np.zeros(polyparams), in_vals))
         self.p = np.linalg.solve(C, invec)
-        self.condC = np.linalg.cond(C)
         self.C = C
         
     def polynomial(self, out_mesh):
@@ -196,7 +195,6 @@ class NoneConsistent(RBF):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         
         self.C = self.eval_BF(in_mesh, in_mesh)
-        # print('C.shape = ', self.C.shape)
         self.gamma = np.linalg.solve(self.C, in_vals)
         
         self.rescaled = rescale
@@ -206,7 +204,6 @@ class NoneConsistent(RBF):
 
     def __call__(self, out_mesh):
         A = self.eval_BF(out_mesh, self.in_mesh)
-        # print('A.shape = ', A.shape)
         out_vals = A @ self.gamma
         if self.rescaled:
             out_vals = out_vals / (A @ self.gamma_rescaled)
