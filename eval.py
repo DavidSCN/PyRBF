@@ -1,6 +1,6 @@
 # import MLS
 from rbf import *
-# from plot_helper import *
+from plot_helper import multi_legend
 from mesh import GaussChebyshev_1D
 from ipdb import set_trace
 import matplotlib.pyplot as plt
@@ -95,10 +95,11 @@ def plot_mesh_sizes():
         
 def plot_shape_parameters():
     """ Plots over a range of shape parameters. """
-    # in_mesh = np.linspace(1, 4, 192)
-    in_mesh = mesh.GaussChebyshev_1D(12, 0.25, 4, 1)
+    in_mesh = np.linspace(-1, 1, 192)
+    # in_mesh = mesh.GaussChebyshev_1D(12, 0.25, 4, 1)
+    func = lambda x: np.exp(-np.abs(x-3)**2) + 2
     in_vals = func(in_mesh)
-    test_mesh = np.linspace(1, 4, 2000)
+    test_mesh = np.linspace(-1, 1, 2000)
         
     ms = np.linspace(1, 30, 50)
 
@@ -109,7 +110,7 @@ def plot_shape_parameters():
     for m in ms:
         print("Working on m =", m)
         # bf = create_BFs(Gaussian, m, in_mesh)
-        bf = functools.partial(Gaussian, shape=rescaleBasisfunction(Gaussian, m, in_mesh))
+        bf = Gaussian().shaped(m, in_mesh)
         
         separated.append(SeparatedConsistent(bf, in_mesh, in_vals))
         integrated.append(IntegratedConsistent(bf, in_mesh, in_vals))
@@ -477,10 +478,10 @@ def main():
     # set_save_fig_params()
 
     # plot_basic_consistent()
-    plot_basic_conservative()
+    # plot_basic_conservative()
     # plot_mesh_sizes()
     # plot_rmse_cond()
-    # plot_shape_parameters()
+    plot_shape_parameters()
     # gc_m_order()
     # points_s()
     # gc_m_order()
