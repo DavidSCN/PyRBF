@@ -7,7 +7,7 @@ import scipy.sparse.linalg
 import scipy.spatial
 
 
-dimension = 1
+dimension = 2
 rescaled = False
 func = lambda x: np.power(np.sin(5*x), 2) + np.exp(x/2) # auch mit reinnehmen, als akustisches Beispiel
 # func = functools.partial(lambda x: Gaussian(x-1, 1) + 2)
@@ -157,7 +157,7 @@ class SeparatedConsistentFitted(RBF):
 
 
 
-class IntegratedConsistent(RBF):
+class IntegratedConsistent(RBF): #Fixme this does not work in 2d (yet)!
     def __init__(self, basisfunction, in_mesh, in_vals):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         

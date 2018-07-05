@@ -28,13 +28,13 @@ def plot_basic_conservative():
 
     in_vals = np.array([1, 1, 1, 1])
     
-    none_conservative = NoneConservative(bf, in_mesh, in_vals)
-    plt.plot(out_mesh, none_conservative(out_mesh), "g-", label = "No Polynomial Interpolant")
-    plt.plot(out_mesh, none_conservative(out_mesh) - func(out_mesh), "g:", label = "Error none conservative")
-    plt.plot(out_mesh, none_conservative.weighted_error(func, out_mesh), "g-.", label = "Weighted Error none conservative")
+    #none_conservative = NoneConservative(bf, in_mesh, in_vals)
+    #plt.plot(out_mesh, none_conservative(out_mesh), "g-", label = "No Polynomial Interpolant")
+    #plt.plot(out_mesh, none_conservative(out_mesh) - func(out_mesh), "g:", label = "Error none conservative")
+    #plt.plot(out_mesh, none_conservative.weighted_error(func, out_mesh), "g-.", label = "Weighted Error none conservative")
     
     # print("RMSE NoneConservative =", none_conservative.RMSE(func, out_mesh))
-    print("none out_vals =", none_conservative(out_mesh))
+    #print("none out_vals =", none_conservative(out_mesh))
 
     #none_conservative_resc = NoneConservative(bf, in_mesh, in_vals, True)
     #plt.plot(out_mesh, none_conservative_resc(out_mesh), "c-", label = "No Polynomial Rescaled Interpolant")
@@ -44,7 +44,7 @@ def plot_basic_conservative():
     # plt.plot(out_mesh, none_conservative_resc.rescalingInterpolant(out_mesh), "c-", label = "No Polynomial One Interpolant")
     # print("RMSE NoneConservative Rescaled =", none_conservative_resc.RMSE(func, out_mesh))
     
-    #in_conservative = IntegratedConservative(bf, in_mesh, in_vals, False)
+    in_conservative = IntegratedConservative(bf, in_mesh, in_vals, False)
     #print("integrated out_vals =", in_conservative(out_mesh))
 
     # plt.plot(out_mesh, in_conservative(out_mesh), "m-", label = "Integrated Interpolant")

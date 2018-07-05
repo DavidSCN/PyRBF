@@ -3,6 +3,7 @@ from rbf import RBF
 import functools
 from scipy.special import hyp0f1, lpmn
 from scipy.linalg import solve_triangular
+from tqdm import tqdm
 from coordinate_helper import *
 import math
 
@@ -24,9 +25,10 @@ class RBF_QR(RBF):
         R_tilde = R_dot * D_fraction
         # Step 4: Evaluate expansion functions on in_mesh and compute A
         T = np.empty((K, M))
+        T_dynamic = self._get_T()
         for i in range(K):
-            T[i, :] = self._get_T()[i](in_mesh)
-        A = T[:N, :].T + T[N:K, :].T @ R_tilde.T
+            T[i, :] = T_dynamic[i](in_mesh)
+        self.A = A = T[:N, :].T + T[N:K, :].T @ R_tilde.T
         # Step 5: Solve for lambda
         self.lamb = np.linalg.solve(A, in_vals)
         # Step 6: Prepare evaluation
@@ -36,8 +38,9 @@ class RBF_QR(RBF):
         # Step 6: Evaluate
         out_length = out_mesh.shape[1]
         T_out = np.empty((self.K, out_length))
+        T_dynamic = self._get_T()
         for i in range(self.K):
-            T_out[i, :] = self._get_T()[i](out_mesh)
+            T_out[i, :] = T_dynamic[i](out_mesh)
         Psi_out = self.I_R_tilde @ T_out
         predicition = Psi_out.T @ self.lamb
         return predicition
@@ -106,13 +109,13 @@ class RBF_QR_1D(RBF_QR):
             center, extents = get_center_extents(in_mesh)
         in_mesh, translate, scale = translate_scale_hyperrectangle(np.copy(in_mesh), center, extents)
         assert (in_mesh[0, :].max() <= 1)
-        super(RBF_QR_1D, self).__init__(shape_param, in_mesh, in_vals, translate, scale)
+        super().__init__(shape_param, in_mesh, in_vals, translate, scale)
 
     def __call__(self, out_mesh):
         if len(out_mesh.shape) <= 1:
             out_mesh = out_mesh[np.newaxis, :]
         out_mesh = translate_scale_with(out_mesh, self.translate, self.scale)
-        return super(RBF_QR_1D, self).__call__(out_mesh)
+        return super().__call__(out_mesh)
 
     def _get_K(self, dtype):
         mp = np.finfo(dtype).eps
@@ -172,11 +175,11 @@ class RBF_QR_2D(RBF_QR):
         in_mesh = np.array(in_mesh).reshape((2, -1))
         in_vals = np.array(in_vals).reshape(-1)
         if center is None or extents is None:
-            center, extents = get_center_extents(in_mesh)
+            center, extents = get_center_extents(in_mesh*(1+1e-6))
         in_mesh, translate, scale = translate_scale_hyperrectangle(in_mesh, center, extents)
         in_mesh = cart2polar(in_mesh)
         assert (in_mesh[0, :].max() <= 1)
-        super(RBF_QR_2D, self).__init__(shape_param, in_mesh, in_vals, translate, scale)
+        super().__init__(shape_param, in_mesh, in_vals, translate, scale)
 
     def __call__(self, out_mesh):
         out_mesh = translate_scale_with(np.array(out_mesh), self.translate, self.scale)
@@ -184,7 +187,7 @@ class RBF_QR_2D(RBF_QR):
         out_mesh = out_mesh.reshape((2, -1))
         out_mesh = cart2polar(out_mesh)
         assert (out_mesh[0, :].max() <= 1)
-        result = super(RBF_QR_2D, self).__call__(out_mesh)
+        result = super().__call__(out_mesh)
         return result.reshape(original_shape[1:])
 
     def _get_K(self, dtype):
@@ -213,17 +216,6 @@ class RBF_QR_2D(RBF_QR):
         return j, m
 
     def _get_C(self):
-        def hyp1f2(a, b, c, x):
-            eps = np.finfo(np.float64).eps
-            alpha = 1
-            sum = 1  # first summand is always 1.
-            n = 1  # skip first summand
-            while alpha > eps:
-                alpha *= (a + n - 1) / ((b + n - 1) * (c + n - 1) * n) * x
-                sum += alpha
-                n += 1
-            return sum
-
         def sc_at(trigfunc, j, m, k):
             p = j % 2
             b = 1 if 2 * m + p == 0 else 2
@@ -233,8 +225,7 @@ class RBF_QR_2D(RBF_QR):
             return b * t * math.exp(-self.shape_param ** 2 * self.in_mesh[0, k] ** 2) \
                    * self.in_mesh[0, k] ** j \
                    * trigfunc((2 * m + p) * self.in_mesh[1, k]) \
-                   * hyp1f2(alpha, beta[0], beta[1],
-                            self.shape_param ** 4 * self.in_mesh[0, k] ** 2)
+                   * RBF_QR_3D.hyp_pfq([alpha], beta, self.shape_param ** 4 * self.in_mesh[0, k] ** 2)
 
         c_at = functools.partial(sc_at, math.cos)
         s_at = functools.partial(sc_at, math.sin)
@@ -303,6 +294,18 @@ class RBF_QR_2D(RBF_QR):
 
     @staticmethod
     def __prodprod(*args):
+        """
+        A helper method to compute equations with huge fractions. If there is a Product consisting
+        of N products with n_i factors each, this method computes the product by first multiplying
+        the first N factors of each product and then go on to multiply the next N factors. Thus
+        associativity of multiplication is leveraged to avoid numerical cancellation. The products are
+        given as a list of pairs. each pair defines one product with the first component being a
+        function that returns a factor for a given index and the second component being the limit
+        of the product. E.g. n! can be expressed by (lambda i: i, n) or a^b can be expressed by
+        (lambda i: a, b).
+        :param args: A list of pairs defining the pairs to be multiplied
+        :return: the final product
+        """
         maxidx = 0
         for pair in args:
             assert (len(pair) == 2)
@@ -379,6 +382,9 @@ class RBF_QR_3D(RBF_QR):
             else:
                 ratio = fac
         K = int(1 / 6 * (jmax + 1) * (jmax + 2) * (jmax + 3))
+        self.__init_idices(K)
+        return K
+    def __init_idices(self, K):
         j = m = v = 0
         self.__indices = np.empty((K, 3))
         for i in range(K):
@@ -391,8 +397,6 @@ class RBF_QR_3D(RBF_QR):
                 v = -(2 * m + j % 2)  # reset v with new m!
             self.__indices[i, :] = [int(j), int(m), int(v)]
             v += 1
-        return K
-
     def _get_C(self):
         C = np.empty((self.N, self.K))
         for k, i in np.ndindex(C.shape):
@@ -450,6 +454,18 @@ class RBF_QR_3D(RBF_QR):
 
     @staticmethod
     def __prodprod(*args):
+        """
+        A helper method to compute equations with huge fractions. If there is a Product consisting
+        of N products with n_i factors each, this method computes the product by first multiplying
+        the first N factors of each product and then go on to multiply the next N factors. Thus
+        associativity of multiplication is leveraged to avoid numerical cancellation. The products are
+        given as a list of pairs. each pair defines one product with the first component being a
+        function that returns a factor for a given index and the second component being the limit
+        of the product. E.g. n! can be expressed by (lambda i: i, n) or a^b can be expressed by
+        (lambda i: a, b).
+        :param args: A list of pairs defining the pairs to be multiplied
+        :return: the final product
+        """
         maxidx = 0
         for pair in args:
             assert (len(pair) == 2)
@@ -464,6 +480,14 @@ class RBF_QR_3D(RBF_QR):
     @staticmethod
     # normalized legendre functions N^m_n
     def __normalized_legendre(m, n, x):
+        """
+        Fully normalized associated legendre polynomials degree n and order m. Cf.
+        https://de.mathworks.com/help/matlab/ref/legendre.html#f89-1002493
+        :param m: Order
+        :param n: Degree
+        :param x: Evaluation point
+        :return: Function value
+        """
         upper_fact = (lambda x: x, n - m)
         lower_fact = (lambda x: 1 / x, n + m)
         factor = RBF_QR_3D.__prodprod(upper_fact, lower_fact)
@@ -481,6 +505,16 @@ class RBF_QR_3D(RBF_QR):
     @staticmethod
     # tested
     def hyp_pfq(upper, lower, x):
+        """
+        Computes generalized hypergeometric function pFq. Cf.
+        https://en.wikipedia.org/wiki/Generalized_hypergeometric_function
+        p and q are inferred from upper and lower. This only works on scalar
+        values but requires neither upper nor lower to be a list of integers.
+        :param upper: a list containing the first p parameters
+        :param lower: a list containing the next q parameters
+        :param x: the point where the function should be evaluated
+        :return: the function value (always scalar)
+        """
         eps = np.finfo(np.float64).eps
         alpha = 1
         sum = 1
