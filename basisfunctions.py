@@ -43,11 +43,11 @@ class ThinPlateSplines(Basisfunction):
 
 class InverseMultiQuadrics(Basisfunction):
     def __call__(self, radius, shape):
-        return 1.0 / np.sqrt(1 + np.power(shape, 2) + np.power(radius, 2));
+        return 1.0 / np.sqrt(np.power(shape, 2) + np.power(radius, 2));
 
 class MultiQuadrics(Basisfunction):
     def __call__(self, radius, shape):
-        return np.power(shape, 2) + np.power(radius, 2)
+        return np.sqrt(np.power(shape, 2) + np.power(radius, 2))
 
 class VolumeSplines(Basisfunction):
     def __call__(self, radius, shape = 0):
@@ -58,7 +58,7 @@ class CompactThinPlateSplineC2(Basisfunction):
         radius = np.abs(radius)
         result = np.zeros_like(radius)
         p = radius / shape
-        result =  1 - 30*np.power(p, 2) - 10*np.power(p, 3) + 45*np.power(p, 4) - 6*np.power(p, 5) - 60*np.log(np.power(p, np.power(p, 3)))
+        result =  1 - 30*np.power(p, 2) - 10*np.power(p, 3) + 45*np.power(p, 4) - 6*np.power(p, 5) - 60*np.power(p,3)*np.log(p)
         result[ radius >= shape ] = 0
         return result
 

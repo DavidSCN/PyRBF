@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from RBF.basisfunctions import *
+from basisfunctions import *
 from plot_helper import *
 
 set_save_fig_params(rows = 1.3, cols = 1)
@@ -9,8 +9,8 @@ in_mesh = np.linspace(-1, 1, 10)
 
 ax = plt.subplot(3, 2, 1)
 ax.plot(plot_mesh, Gaussian()(plot_mesh, 8), label = "s = 8" )
-ax.plot(plot_mesh, Gaussian()(plot_mesh, 4), label = "s = 6" )
-ax.plot(plot_mesh, Gaussian()(plot_mesh, 2), label = "s = 4" )
+ax.plot(plot_mesh, Gaussian()(plot_mesh, 4), label = "s = 4" )
+ax.plot(plot_mesh, Gaussian()(plot_mesh, 2), label = "s = 2" )
 ax.set_xticks([])
 ax.legend(loc = "center right")
 ax.set_title("Gaussian")
