@@ -15,7 +15,7 @@ def GC(order, element_size, domain_size, domain_start = 0):
     return coords
 
 def GaussChebyshev_1D(order, element_size, domain_size, domain_start = 0):
-    """ Returns coordinates for a 2d Gauss-Chebyshev mesh. """
+    """ Returns coordinates for a 1d Gauss-Chebyshev mesh. """
     assert(domain_size % element_size == 0)
     nodes = np.polynomial.chebyshev.chebgauss(order)[0] # Get GC points on [-1;1]
     nodes *= element_size / 2 # Scale from [-1;1] to element_size
@@ -31,18 +31,19 @@ def GaussChebyshev_1D(order, element_size, domain_size, domain_start = 0):
 
 
 def GaussChebyshev_2D(order, element_size, domain_size, domain_start = 0):
-    """ Returns a 3d quadratic Gauss-Chebyshev mesh grid """
-    x = GaussChebyshev_2D(order, element_size, domain_size, domain_start)
-    y = GaussChebyshev_2D(order, element_size, domain_size, domain_start)
+    """ Returns a 2d quadratic Gauss-Chebyshev mesh grid """
+    x = GaussChebyshev_1D(order, element_size, domain_size, domain_start)
+    y = GaussChebyshev_1D(order, element_size, domain_size, domain_start)
     xx, yy = np.meshgrid(x,y)
     return xx, yy
 
 
 
 if __name__ == "__main__":
-    assert(np.all(GaussChebyshev_2D(4, 2, 2, 0) == GC(4, 2, 2, 0)))
-    assert(np.all(GaussChebyshev_2D(4, 2, 2, 5) == GC(4, 2, 2, 5)))
-    assert(np.all(GaussChebyshev_2D(10, 2, 2, 5) == GC(10, 2, 2, 5)))
-    assert(np.all(GaussChebyshev_2D(4, 1, 2, 0) == GC(4, 1, 2, 0)))
-    assert(np.all(GaussChebyshev_2D(6, 3, 9, 8) == GC(6, 3, 9, 8)))
+    import pdb; pdb.set_trace()
+    assert(np.all(GaussChebyshev_1D(4, 2, 2, 0) == GC(4, 2, 2, 0)))
+    assert(np.all(GaussChebyshev_1D(4, 2, 2, 5) == GC(4, 2, 2, 5)))
+    assert(np.all(GaussChebyshev_1D(10, 2, 2, 5) == GC(10, 2, 2, 5)))
+    assert(np.all(GaussChebyshev_1D(4, 1, 2, 0) == GC(4, 1, 2, 0)))
+    assert(np.all(GaussChebyshev_1D(6, 3, 9, 8) == GC(6, 3, 9, 8)))
 
