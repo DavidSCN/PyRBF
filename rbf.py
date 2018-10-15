@@ -36,6 +36,7 @@ def spacing(a):
 
 class RBF:
     def RMSE(self, func, test_mesh):
+        """ Returns the root mean squared error. """
         targets = func(test_mesh)
         predictions = self(test_mesh)
         return np.sqrt(((predictions - targets) ** 2).mean())
