@@ -58,7 +58,7 @@ def main():
     df.to_csv("h_convergence.csv")
 
     for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
-        group.to_csv("h_convergence_" + "_".join(str(g) for g in name))
+        group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
 
     print(df)
 
