@@ -3,6 +3,11 @@ import numpy as np
 import scipy, scipy.special
 
 class Basisfunction():
+    has_shape_param = False
+    
+    def __str__(self):
+        return type(self).__name__
+
     def shape_param(self, m, in_mesh):
         return m
     
@@ -23,6 +28,8 @@ class Basisfunction():
 
 
 class Gaussian(Basisfunction):
+    has_shape_param = True
+    
     def __call__(self, radius, shape):
         radius = np.atleast_1d(radius)
         threshold = np.sqrt( - np.log(10e-9) ) / shape
@@ -42,10 +49,14 @@ class ThinPlateSplines(Basisfunction):
         return scipy.special.xlogy(np.power(radius, 2), np.abs(radius))
 
 class InverseMultiQuadrics(Basisfunction):
+    has_shape_param = True
+
     def __call__(self, radius, shape):
         return 1.0 / np.sqrt(np.power(shape, 2) + np.power(radius, 2));
 
 class MultiQuadrics(Basisfunction):
+    has_shape_param = True
+    
     def __call__(self, radius, shape):
         return np.sqrt(np.power(shape, 2) + np.power(radius, 2))
 
@@ -54,6 +65,8 @@ class VolumeSplines(Basisfunction):
         return np.abs(radius)
 
 class CompactThinPlateSplineC2(Basisfunction):
+    has_shape_param = True
+    
     def __call__(self, radius, shape):
         radius = np.abs(radius)
         result = np.zeros_like(radius)

@@ -1,19 +1,24 @@
 import numpy as np
-from ipdb import set_trace
 
-def highfreq_1d(x):
-    return np.exp(2*x) + 4*np.sin(5*x) + np.sin(80*x) + 10
+class Testfunction:
+    def __str__(self):
+        return type(self).__name__
+    
 
-def lowfreq_1d(x):
-    return np.exp(2*x) + 4*np.sin(5*x) + 10
+class highfreq(Testfunction):
+    def __call__(self, x):
+        return np.exp(2*x) + 4*np.sin(5*x) + np.sin(80*x) + 10
 
-def jump(x):
-    return np.piecewise(x,
-                        [
-                            x <= 0.5,
-                            x > 0.5
-                        ],
-                        [2, 4])
+
+class lowfreq(Testfunction):
+    def __call__(self, x):
+        return np.exp(2*x) + 4*np.sin(5*x) + 10
+
+class jump(Testfunction):
+    def __call__(self, x):
+        return np.piecewise(x,
+                            [x <= 0.5, x > 0.5 ],
+                            [2,        4])
 
 
 
