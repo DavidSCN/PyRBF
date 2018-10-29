@@ -58,8 +58,8 @@ def main():
     df = pd.DataFrame(result)
     df = df.set_index("h")
 
-    df.to_pickle("h_convergence_full.pkl")
-    df.to_csv("h_convergence_full.csv")
+    df.to_pickle("h_convergence.pkl")
+    df.to_csv("h_convergence.csv")
     set_trace()
 
     for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
