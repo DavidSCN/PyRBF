@@ -1,6 +1,5 @@
 from basisfunctions import *
 
-from ipdb import set_trace
 import functools
 import numpy as np
 import scipy.sparse.linalg
@@ -35,6 +34,9 @@ def spacing(a):
 
 
 class RBF:
+    def __str__(self):
+        return type(self).__name__
+
     def RMSE(self, func, test_mesh):
         """ Returns the root mean squared error. """
         targets = func(test_mesh)
