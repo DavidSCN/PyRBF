@@ -46,7 +46,7 @@ class RBF:
     def error(self, func, test_mesh):
         targets = func(test_mesh)
         predictions = self(test_mesh)
-        return np.linalg.norm(predictions - targets, ord=np.inf)
+        return self(test_mest) - func(test_mesh)
 
     def weighted_error(self, func, out_mesh):
         """ Weighted error to get a better error for conservative interpolation. """

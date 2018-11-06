@@ -20,7 +20,7 @@ def kernel(args):
             "RBF" : str(interp),
              "BF" : str(bf),
              "RMSE" : interp.RMSE(testfunction, test_mesh),
-             "InfError" : interp.error(testfunction, test_mesh),
+             "InfError" : np.linalg.norm(interp.error(testfunction, test_mesh), ord=np.inf),
              "ConditionC" : interp.condC,
              "Testfunction" : str(testfunction),
              "m" : m if bf.has_shape_param else 0}
@@ -28,9 +28,12 @@ def kernel(args):
 
 def main():
     # mesh_sizes = np.linspace(10, 5000, num = 50)
-    mesh_sizes = np.linspace(10, 200, num = 2)
+    # mesh_sizes = np.linspace(10, 200, num = 2)
+    mesh_sizes = np.logspace(10, 15, base = 2, num = 40) # = [1024, 32768]
+
+    
     bfs = [basisfunctions.Gaussian(), basisfunctions.ThinPlateSplines(),
-                      basisfunctions.VolumeSplines(), basisfunctions.MultiQuadrics()]
+           basisfunctions.VolumeSplines(), basisfunctions.MultiQuadrics()]
     RBFs = [rbf.NoneConsistent, rbf.SeparatedConsistent]
     tfs = [testfunctions.highfreq(), testfunctions.lowfreq(), testfunctions.jump()]
     ms = [4, 6, 8, 10, 14]
