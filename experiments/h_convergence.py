@@ -29,7 +29,7 @@ def kernel(args):
 def main():
     # mesh_sizes = np.linspace(10, 5000, num = 50)
     # mesh_sizes = np.linspace(10, 200, num = 2)
-    mesh_sizes = np.logspace(10, 15, base = 2, num = 40) # = [1024, 32768]
+    mesh_sizes = np.logspace(10, 14, base = 2, num = 40) # = [1024, 16384]
 
     
     bfs = [basisfunctions.Gaussian(), basisfunctions.ThinPlateSplines(),
@@ -48,7 +48,7 @@ def main():
         params.append((mesh_size, RBF, bf, tf, m))
 
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers = 16) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers = 10) as executor:
         result = executor.map(kernel, params)
     # for p in params:
         # kernel(**p)
