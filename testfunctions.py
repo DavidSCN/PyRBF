@@ -7,12 +7,12 @@ class Testfunction:
 
 class highfreq(Testfunction):
     def __call__(self, x):
-        return np.exp(2*x) + 4*np.sin(5*x) + np.sin(80*x) + 10
+        return np.exp(3*x) + 4*np.sin(5*x) + np.sin(80*x) + 2
 
 
 class lowfreq(Testfunction):
     def __call__(self, x):
-        return np.exp(2*x) + 4*np.sin(5*x) + 10
+        return np.exp(3*x) + 4*np.sin(5*x) + 2
 
 class jump(Testfunction):
     def __call__(self, x):
