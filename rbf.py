@@ -220,7 +220,7 @@ class NoneConservative(RBF):
         A = self.eval_BF(self.in_mesh, out_mesh)
 
         au = A.T @ self.in_vals
-        self.out_vals = np.linalg.solve(self.C, au)
+        out_vals = np.linalg.solve(self.C, au)
 
         if self.rescale:
             self.au_rescaled = A.T @ np.ones_like(self.in_vals)
@@ -228,12 +228,10 @@ class NoneConservative(RBF):
             self.rescaled_interp = self.rescaled_interp + (1 - np.mean(self.rescaled_interp))
             self.out_vals = self.out_vals / self.rescaled_interp
                     
-        print("Conservativeness None Delta =", np.sum(self.out_vals) - np.sum(self.in_vals),
-              ", rescaling =", self.rescale)
-        return self.out_vals
+        return out_vals
 
 
-    def rescalingInterpolant(self, out_mesh):
+    def rescaled_interpolant(self, out_mesh):
         try:
             return self.rescaled_interp
         except NameError:
@@ -247,7 +245,6 @@ class IntegratedConservative(RBF):
         self.in_mesh = coordify(in_mesh)
         
     def __call__(self, out_mesh):
-        # set_trace()
         out_mesh = coordify(out_mesh)
         dimension = len(out_mesh[0])
         polyparams = dimension + 1
@@ -265,17 +262,14 @@ class IntegratedConservative(RBF):
         A[:, polyparams:] = self.eval_BF(self.in_mesh, out_mesh)
 
         au = A.T @ self.in_vals
-        self.out_vals = np.linalg.solve(C, au)[polyparams:]
+        out_vals = np.linalg.solve(C, au)[polyparams:]
 
         if self.rescale:
             au_rescaled =  self.eval_BF(self.in_mesh, out_mesh).T @ np.ones_like(self.in_vals)
-            self.out_vals = self.out_vals / np.linalg.solve(self.eval_BF(out_mesh, out_mesh), au_rescaled)
+            out_vals = out_vals / np.linalg.solve(self.eval_BF(out_mesh, out_mesh), au_rescaled)
         
         
-        print("Conservativeness Integrated Delta =", np.sum(self.out_vals) - np.sum(self.in_vals),
-              ", rescaling =", self.rescale)
-
-        return self.out_vals
+        return out_vals
 
 
    
