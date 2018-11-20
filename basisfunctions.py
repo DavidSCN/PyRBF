@@ -71,7 +71,8 @@ class CompactThinPlateSplineC2(Basisfunction):
         radius = np.abs(radius)
         result = np.zeros_like(radius)
         p = radius / shape
-        result =  1 - 30*np.power(p, 2) - 10*np.power(p, 3) + 45*np.power(p, 4) - 6*np.power(p, 5) - 60*np.power(p,3)*np.log(p)
+        result =  1 - 30*np.power(p, 2) - 10*np.power(p, 3) + 45*np.power(p, 4) - 6*np.power(p, 5)
+        result =- scipy.special.xlogy(60*np.power(p,3), p)
         result[ radius >= shape ] = 0
         return result
 
