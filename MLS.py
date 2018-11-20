@@ -1,8 +1,11 @@
+""" Fasshauer, G. E., & Zhang, J. G. (2009). Preconditioning of Radial Basis Function Interpolation Systems via Accelerated Iterated Approximate Moving Least Squares Approximation. In A. J. M. Ferreira, E. J. Kansa, G. E. Fasshauer, & V. M. A. Leitäo (Eds.), Progress on Meshless Methods (pp. 57–75). Dordrecht: Springer Netherlands. https://doi.org/10.1007/978-1-4020-8821-6_4 """
+
 import numpy as np, matplotlib.pyplot as plt
 from numpy.linalg import norm, inv
+import scipy
 from scipy.optimize import fsolve, fminbound
 import functools, matplotlib
-import RBF
+import basisfunctions, mesh, rbf
 
 from ipdb import set_trace
 
@@ -67,22 +70,22 @@ def printMtxProps(A, prefix = ""):
             "maxSV": SV_max, "minSV": SV_min}
     
 
-def MLS_PC(A, n = 60):
+def MLS_PC(A, n = 40):
     I = np.identity(len(A))
     props = printMtxProps(A)    
     # set_trace()
-    scale_factor = 1 / (1.1 * props["maxEV"])
-    Aunscaled = A.copy()
-    A = A * scale_factor
+    # scale_factor = 1 / (1.1 * props["maxEV"])
+    # Aunscaled = A.copy()
+    # A = A * scale_factor
     # A = A*inv(diag(A)) # rhs ebenfalls diag^-1
         
     # assert(norm(I-A, 2) <= 1)
 
-    props = printMtxProps(A, "Scaled")
+    # props = printMtxProps(A, "Scaled")
 
-    assert(0-eps < props["minEV"] and props["maxEV"] < 1+eps)
+    # assert(0-eps < props["minEV"] and props["maxEV"] < 1+eps)
    
-    P = I
+    P = I.copy()
     conds = []
     for k in range(1, n+1):
         P = P @ (2*I - A @ P)
@@ -92,29 +95,49 @@ def MLS_PC(A, n = 60):
     # plt.semilogy(range(1, n+1), conds)
     # plt.grid()
     # plt.show()
-    print("Scale Factor =", scale_factor)
+    # print("Scale Factor =", scale_factor)
     return P, A
 
+def MLS_PC_Alg1(A, n = 40):
+    """ Follows algorithm 1 of paper. """
+
+    # Eigen decomposition, A is symmetrical
+    Alpha, X = np.linalg.eigh(A)
+    Alpha = np.diag(Alpha)
+
+    I = np.identity(len(A))
+    P = I.copy()
+    for k in range(1, n+1):
+        P  = P @ (I - Alpha @ P)
+
+    Pn = X @ P @ inv(X)
+
+    return Pn, A
+        
+        
+    
 
 if __name__ == "__main__":
     N = 500
-    a = np.random.randint(0,100, size=(N,N))
-    A = np.tril(a) + np.tril(a, -1).T
+    # a = np.random.randint(0,100, size=(N,N))
+    # A = np.tril(a) + np.tril(a, -1).T
 
-    # in_mesh = np.linspace(1, 4, N)
-    in_mesh = RBF.GaussChebyshev(24, 1, 4, 1)
-    basisfunction = functools.partial(RBF.Gaussian, shape=RBF.rescaleBasisfunction(RBF.Gaussian, 10, in_mesh))
-    A = RBF.eval_BF(in_mesh, in_mesh, basisfunction)
+    in_mesh = np.linspace(1, 4, N)
+    # in_mesh = mesh.GaussChebyshev_1D(24, 1, 4, 1)
+    basisfunction = basisfunctions.Gaussian().shaped(5, in_mesh)
+    coordinate_mesh = in_mesh[:, np.newaxis]
+    A = scipy.spatial.distance_matrix(coordinate_mesh, coordinate_mesh)
+    A = basisfunction(A)
 
     I = np.identity(len(A))
-    print("max(EV(A))   =", np.max(np.linalg.eig(A)[0]))
-    print("EV(A) > 0    =", np.all(np.linalg.eig(A)[0] > 0) )
+    print("max(EV(A))   =", np.linalg.eigvalsh(A)[-1])
+    print("EV(A) > 0    =", np.all(np.linalg.eigvalsh(A) > 0) )
     print("||I-A||_2    =", norm(I-A, 2)) # Should be < 1 according to 5.3
     
     P, A = MLS_PC(A)
+    # P, A = MLS_PC_Alg1(A)
 
     print()
-    I = np.identity(len(A))
     print("||A^-1 - P|| =", norm(inv(A) - P))
     print("||A - P||    =", norm(A - P))
     print("cond(A)      =", np.linalg.cond(A)) # cond(A) == cond(P) for n->oo
@@ -128,10 +151,13 @@ if __name__ == "__main__":
     ax = ax.flat
     ax[0].matshow(A)
     ax[0].set_title("A")
+    
     ax[1].matshow(P)
     ax[1].set_title("P")
+    
     ax[2].matshow(A @ P)
     ax[2].set_title("A @ P")
+    
     ax[3].matshow(P @ A)
     ax[3].set_title("P @ A")
         
