@@ -1,15 +1,12 @@
 from basisfunctions import *
 
-# from ipdb import set_trace
-
+import functools
 import numpy as np
 import scipy.sparse.linalg
 import scipy.spatial
 
 
 dimension = 1
-rescaled = False
-func = lambda x: np.power(np.sin(5*x), 2) + np.exp(x/2) # auch mit reinnehmen, als akustisches Beispiel
 # func = functools.partial(lambda x: Gaussian(x-1, 1) + 2)
 # heaviside = lambda x: 0 if x < 2 else 1
 # func = np.vectorize(heaviside)
@@ -35,15 +32,17 @@ def spacing(a):
 
 
 class RBF:
+    def __str__(self):
+        return type(self).__name__
+
     def RMSE(self, func, test_mesh):
+        """ Returns the root mean squared error. """
         targets = func(test_mesh)
         predictions = self(test_mesh)
         return np.sqrt(((predictions - targets) ** 2).mean())
 
     def error(self, func, test_mesh):
-        targets = func(test_mesh)
-        predictions = self(test_mesh)
-        return np.linalg.norm(predictions - targets, ord=np.inf)
+        return self(test_mesh) - func(test_mesh)
 
     def weighted_error(self, func, out_mesh):
         """ Weighted error to get a better error for conservative interpolation. """
@@ -94,7 +93,7 @@ class RBF:
 
     
 class SeparatedConsistent(RBF):
-    def __init__(self, basisfunction, in_mesh, in_vals, rescale = rescaled):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         in_mesh = coordify(in_mesh)
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         Q = np.zeros( [in_mesh.shape[0], in_mesh.shape[1] + 1] )
@@ -129,7 +128,7 @@ class SeparatedConsistent(RBF):
         return out_vals + V @ self.beta
 
 class SeparatedConsistentFitted(RBF):        
-    def __init__(self, basisfunction, in_mesh, in_vals, rescale = rescaled, degree = 2):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False, degree = 2):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         
         self.poly = np.poly1d(np.polyfit(in_mesh, in_vals, degree))
@@ -191,7 +190,7 @@ class IntegratedConsistent(RBF): #Fixme this does not work in 2d (yet)!
     
 
 class NoneConsistent(RBF):
-    def __init__(self, basisfunction, in_mesh, in_vals, rescale = rescaled):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         
         self.C = self.eval_BF(in_mesh, in_mesh)
@@ -211,7 +210,9 @@ class NoneConsistent(RBF):
 
 
 class NoneConservative(RBF):
-    def __init__(self, basisfunction, in_mesh, in_vals, rescale = rescaled):
+    """ No polynomial, conservative interpolation. """
+    
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         self.basisfunction, self.in_mesh, self.in_vals, self.rescale = basisfunction, in_mesh, in_vals, rescale
         
     def __call__(self, out_mesh):
@@ -219,7 +220,7 @@ class NoneConservative(RBF):
         A = self.eval_BF(self.in_mesh, out_mesh)
 
         au = A.T @ self.in_vals
-        self.out_vals = np.linalg.solve(self.C, au)
+        out_vals = np.linalg.solve(self.C, au)
 
         if self.rescale:
             self.au_rescaled = A.T @ np.ones_like(self.in_vals)
@@ -227,12 +228,10 @@ class NoneConservative(RBF):
             self.rescaled_interp = self.rescaled_interp + (1 - np.mean(self.rescaled_interp))
             self.out_vals = self.out_vals / self.rescaled_interp
                     
-        print("Conservativeness None Delta =", np.sum(self.out_vals) - np.sum(self.in_vals),
-              ", rescaling =", self.rescale)
-        return self.out_vals
+        return out_vals
 
 
-    def rescalingInterpolant(self, out_mesh):
+    def rescaled_interpolant(self, out_mesh):
         try:
             return self.rescaled_interp
         except NameError:
@@ -241,12 +240,11 @@ class NoneConservative(RBF):
 
     
 class IntegratedConservative(RBF):
-    def __init__(self, basisfunction, in_mesh, in_vals, rescale = rescaled):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         self.basisfunction, self.in_vals, self.rescale = basisfunction, in_vals, rescale
         self.in_mesh = coordify(in_mesh)
         
     def __call__(self, out_mesh):
-        # set_trace()
         out_mesh = coordify(out_mesh)
         dimension = len(out_mesh[0])
         polyparams = dimension + 1
@@ -264,17 +262,14 @@ class IntegratedConservative(RBF):
         A[:, polyparams:] = self.eval_BF(self.in_mesh, out_mesh)
 
         au = A.T @ self.in_vals
-        self.out_vals = np.linalg.solve(C, au)[polyparams:]
+        out_vals = np.linalg.solve(C, au)[polyparams:]
 
         if self.rescale:
             au_rescaled =  self.eval_BF(self.in_mesh, out_mesh).T @ np.ones_like(self.in_vals)
-            self.out_vals = self.out_vals / np.linalg.solve(self.eval_BF(out_mesh, out_mesh), au_rescaled)
+            out_vals = out_vals / np.linalg.solve(self.eval_BF(out_mesh, out_mesh), au_rescaled)
         
         
-        print("Conservativeness Integrated Delta =", np.sum(self.out_vals[polyparams:]) - np.sum(self.in_vals),
-              ", rescaling =", self.rescale)
-
-        return self.out_vals
+        return out_vals
 
 
    
@@ -284,9 +279,7 @@ class SeparatedConservative(RBF):
         self.in_mesh = coordify(in_mesh)
         
     def __call__(self, out_mesh):
-        # set_trace()
         from scipy.linalg import inv
-
         out_mesh = coordify(out_mesh)
         dimension = len(out_mesh[0])
         
