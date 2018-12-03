@@ -1,4 +1,5 @@
 from basisfunctions import *
+import mesh
 
 import functools
 import numpy as np
@@ -10,25 +11,6 @@ dimension = 1
 # heaviside = lambda x: 0 if x < 2 else 1
 # func = np.vectorize(heaviside)
 # func = lambda x: x
-
-
-def coordify(array):
-    """ Changes [a, b, c] to [ [a], [b], [c] ]"""
-    return array[:, np.newaxis] if array.ndim == 1 else array
-    # return np.atleast_2d(array).T
-           
-
-
-def spacing(a):
-    """ Returns spaces around vertices """
-    spaces = np.zeros_like(a).astype("float")
-    for i, e in enumerate(a[1:-1], start=1):
-        spaces[i] = (a[i+1] - a[i-1]) / 2.0
-
-    spaces[0] = a[1] - a[0]
-    spaces[-1] = a[-1] - a[-2]
-
-    return spaces
 
 
 class RBF:
@@ -94,7 +76,7 @@ class RBF:
     
 class SeparatedConsistent(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
-        in_mesh = coordify(in_mesh)
+        in_mesh = mesh.coordify(in_mesh)
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         Q = np.zeros( [in_mesh.shape[0], in_mesh.shape[1] + 1] )
         Q[:, 0] = 1
@@ -115,7 +97,7 @@ class SeparatedConsistent(RBF):
         return self.beta[0] + self.beta[1] * out_mesh
 
     def __call__(self, out_mesh):
-        out_mesh = coordify(out_mesh)
+        out_mesh = mesh.coordify(out_mesh)
         A = self.eval_BF(out_mesh, self.in_mesh)
         V = np.zeros( [out_mesh.shape[0], out_mesh.shape[1] +1 ])
         V[:, 0] = 1
@@ -242,10 +224,10 @@ class NoneConservative(RBF):
 class IntegratedConservative(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         self.basisfunction, self.in_vals, self.rescale = basisfunction, in_vals, rescale
-        self.in_mesh = coordify(in_mesh)
+        self.in_mesh = mesh.coordify(in_mesh)
         
     def __call__(self, out_mesh):
-        out_mesh = coordify(out_mesh)
+        out_mesh = mesh.coordify(out_mesh)
         dimension = len(out_mesh[0])
         polyparams = dimension + 1
         # polyparams = 0
@@ -276,11 +258,11 @@ class IntegratedConservative(RBF):
 class SeparatedConservative(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals):
         self.basisfunction, self.in_vals = basisfunction, in_vals
-        self.in_mesh = coordify(in_mesh)
+        self.in_mesh = mesh.coordify(in_mesh)
         
     def __call__(self, out_mesh):
         from scipy.linalg import inv
-        out_mesh = coordify(out_mesh)
+        out_mesh = mesh.coordify(out_mesh)
         dimension = len(out_mesh[0])
         
         self.C = self.eval_BF(out_mesh, out_mesh)

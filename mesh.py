@@ -1,5 +1,24 @@
 import numpy as np
 
+def coordify(array):
+    """ Changes [a, b, c] to [ [a], [b], [c] ]"""
+    return array[:, np.newaxis] if array.ndim == 1 else array
+    # return np.atleast_2d(array).T
+           
+
+
+def spacing(a):
+    """ Returns spaces around vertices """
+    spaces = np.zeros_like(a).astype("float")
+    for i, e in enumerate(a[1:-1], start=1):
+        spaces[i] = (a[i+1] - a[i-1]) / 2.0
+
+    spaces[0] = a[1] - a[0]
+    spaces[-1] = a[-1] - a[-2]
+
+    return spaces
+
+
 def GC(order, element_size, domain_size, domain_start = 0):
     """ Returns coordinates for a 2d Gauss-Chebyshev mesh. """
     assert(domain_size % element_size == 0)
