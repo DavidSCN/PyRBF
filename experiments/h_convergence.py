@@ -66,7 +66,7 @@ def main():
            basisfunctions.CompactPolynomialC0, basisfunctions.CompactThinPlateSplineC2]
     RBFs = [rbf.NoneConsistent, rbf.SeparatedConsistent]
     tfs = [testfunctions.Highfreq(), testfunctions.Lowfreq(), testfunctions.Jump(), testfunctions.Constant(1)]
-    ms = [4, 6, 8, 10, 14]
+    ms = [2, 3, 4, 6, 8]
 
     params = []
     for mesh_size, RBF, bf, tf, m in itertools.product(mesh_sizes, RBFs, bfs, tfs, ms):

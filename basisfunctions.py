@@ -49,7 +49,7 @@ class Gaussian(Basisfunction):
     @staticmethod
     def shape_param_from_(m, in_mesh):
         h_max = Gaussian.h_max(in_mesh)
-        return np.sqrt(-np.log(1e-9)) / (m*h_max)
+        return (2*np.sqrt(-np.log(1e-9))) / (m*h_max)
             
 
 class ThinPlateSplines(Basisfunction):
