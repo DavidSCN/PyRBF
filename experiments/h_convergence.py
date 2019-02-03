@@ -1,11 +1,15 @@
 """ Plots RMSE over mesh density h (number of data sites). """
 
-import concurrent.futures, itertools
+import concurrent.futures, itertools, multiprocessing
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
 import basisfunctions, rbf, testfunctions
 
 
 def kernel(args):
+    global runCounter, runTotal
+    with runCounter.get_lock():
+        runCounter.value += 1
+
     mesh_size, RBF, bf, testfunction, m = args
     in_mesh = np.linspace(0, 1, num = int(mesh_size))
     test_mesh = np.linspace(0.1, 0.9, 50000)
@@ -17,9 +21,12 @@ def kernel(args):
 
     # Compute the error here, for performance reasons
     error = interp(test_mesh) - testfunction(test_mesh)
+
+    print("({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
+        runCounter = runCounter.value, runTotal = runTotal, interp = interp,
+        testfunction = testfunction, b = b, mesh_size = mesh_size, m = m))
+
     
-    print(interp, testfunction, b, "mesh_size =", mesh_size, "m =", m)
-        
     return { "h" : 1 / mesh_size,
              "RBF" : str(interp),
              "BF" : str(b),
@@ -82,8 +89,11 @@ def main():
                           # tfs, [0.1, 0.5, 1, 1.5])
     # )
 
-    print("Size of parameter space =", len(params))
-    print()
+    global runTotal
+    runTotal = len(params)
+
+    global runCounter
+    runCounter = multiprocessing.Value("i", 0)
     
     if parallel:
         with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
