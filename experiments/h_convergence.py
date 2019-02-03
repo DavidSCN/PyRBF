@@ -32,21 +32,33 @@ def kernel(args):
 
 def main():
     parallel = True
-    workers = 2
-    writeCSV = False
+    workers = 10
+    writeCSV = True
     
     # mesh_sizes = np.linspace(10, 5000, num = 50)
     # mesh_sizes = np.linspace(10, 200, num = 2, dtype = int)
     # mesh_sizes = np.logspace(10, 14, base = 2, num = 40) # = [1024, 16384]
-    # mesh_sizes = np.geomspace(100, 15000, num = 10)
 
-    mesh_sizes = np.array([100, 200, 300])
+    # Output of np..geomspace(100, 15000, num = 40), not available at neon
+    mesh_sizes = np.array([  100.        ,   113.70962094,   129.29877894,   147.02515141,
+                             167.18174235,   190.1017255 ,   216.16395146,   245.79920981,
+                             279.49734974,   317.81537692,   361.38666038,   410.93140164,
+                             467.26853912,   531.32928459,   604.17251544,   687.00227711,
+                             781.18768514,   888.28555558,  1010.0661381 ,  1148.54237685,
+                             1306.00318302,  1485.05126885,  1688.64616853,  1920.15315722,
+                             2183.39887649,  2482.73458601,  2823.10808664,  3210.14550398,
+                             3650.24428412,  4150.67893877,  4719.72128761,  5366.77718545,
+                             6102.54199414,  6939.17736909,  7890.51228258,  8972.27160655,
+                             10202.3360333 , 11601.03763024, 13191.49591417, 15000.        ])
+
+
+    # mesh_sizes = np.array([100, 200])
 
     bfs = [basisfunctions.Gaussian, basisfunctions.ThinPlateSplines,
            basisfunctions.VolumeSplines, basisfunctions.MultiQuadrics,
            basisfunctions.CompactPolynomialC0, basisfunctions.CompactThinPlateSplineC2]
     RBFs = [rbf.NoneConsistent, rbf.SeparatedConsistent]
-    tfs = [testfunctions.highfreq(), testfunctions.lowfreq(), testfunctions.jump()]
+    tfs = [testfunctions.Highfreq(), testfunctions.Lowfreq(), testfunctions.Jump(), testfunctions.Constant(1)]
     ms = [4, 6, 8, 10, 14]
 
     params = []
@@ -70,6 +82,9 @@ def main():
                           # tfs, [0.1, 0.5, 1, 1.5])
     # )
 
+    print("Size of parameter space =", len(params))
+    print()
+    
     if parallel:
         with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
             result = executor.map(kernel, params)
