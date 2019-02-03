@@ -1,3 +1,5 @@
+""" Testfunctions, should be evaluated on [0,1]. """
+
 import numpy as np
 
 class Testfunction:
@@ -5,20 +7,30 @@ class Testfunction:
         return type(self).__name__
     
 
-class highfreq(Testfunction):
+class Highfreq(Testfunction):
     def __call__(self, x):
         return np.exp(3*x) + 4*np.sin(5*x) + np.sin(80*x) + 2
 
 
-class lowfreq(Testfunction):
+class Lowfreq(Testfunction):
     def __call__(self, x):
         return np.exp(3*x) + 4*np.sin(5*x) + 2
 
-class jump(Testfunction):
+class Jump(Testfunction):
     def __call__(self, x):
         return np.piecewise(x,
                             [x <= 0.5, x > 0.5 ],
                             [2,        4])
+
+class Constant(Testfunction):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return "Constant" + str(self.value)
+
+    def __call__(self, x):
+        return np.full_like(x, self.value)
 
 
 

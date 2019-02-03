@@ -77,9 +77,6 @@ class MultiQuadrics(Basisfunction):
         return np.sqrt(np.power(self.s, 2) + np.power(radius, 2))
 
 class VolumeSplines(Basisfunction):
-    def __str__(self):
-        return "VS"
-
     def __call__(self, radius):
         return np.abs(radius)
 
