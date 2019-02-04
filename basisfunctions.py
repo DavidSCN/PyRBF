@@ -13,6 +13,9 @@ class Basisfunction():
 
     @classmethod
     def shape_param_from_m(cls, m, in_mesh):
+        """ m is the support radius expressed in multiples of the mesh width.
+        Default implementation for basis function that don't have a shape parameter or
+        the parameter can not be interpreted that way. """
         return m
 
     def shaped(self, m, in_mesh):
@@ -20,7 +23,7 @@ class Basisfunction():
 
     @staticmethod
     def h_max(mesh):
-        """ Find the greatest distance to each vertices nearest neighbor. """
+        """ Finds the greatest distance to each vertices nearest neighbor. """
         h_max = 0
         if mesh.ndim == 1:
             mesh = mesh[:, np.newaxis]
@@ -48,7 +51,7 @@ class Gaussian(Basisfunction):
     @classmethod
     def shape_param_from_m(cls, m, in_mesh):
         h_max = cls.h_max(in_mesh)
-        return (2*np.sqrt(-np.log(1e-9))) / (m*h_max)
+        return np.sqrt(-np.log(1e-9)) / (m*h_max)
             
 
 class ThinPlateSplines(Basisfunction):
@@ -57,6 +60,7 @@ class ThinPlateSplines(Basisfunction):
         # Avoids the division by zero in np.log
         return scipy.special.xlogy(np.power(radius, 2), np.abs(radius))
 
+    
 class InverseMultiQuadrics(Basisfunction):
     has_shape_param = True
     
@@ -66,6 +70,7 @@ class InverseMultiQuadrics(Basisfunction):
     def __call__(self, radius):
         return 1.0 / np.sqrt(np.power(self.s, 2) + np.power(radius, 2));
 
+    
 class MultiQuadrics(Basisfunction):
     has_shape_param = True
 
@@ -75,10 +80,12 @@ class MultiQuadrics(Basisfunction):
     def __call__(self, radius):
         return np.sqrt(np.power(self.s, 2) + np.power(radius, 2))
 
+    
 class VolumeSplines(Basisfunction):
     def __call__(self, radius):
         return np.abs(radius)
 
+    
 class CompactThinPlateSplineC2(Basisfunction):
     has_shape_param = True
 
@@ -97,7 +104,7 @@ class CompactThinPlateSplineC2(Basisfunction):
     @classmethod
     def shape_param_from_m(cls, m, in_mesh):
         h_max = cls.h_max(in_mesh)
-        return 0.5 * m * h_max
+        return m * h_max
 
 
 class CompactPolynomialC0(Basisfunction):
@@ -117,7 +124,7 @@ class CompactPolynomialC0(Basisfunction):
     @classmethod
     def shape_param_from_m(cls, m, in_mesh):
         h_max = cls.h_max(in_mesh)
-        return 0.5 * m * h_max
+        return  m * h_max
 
 
 def rescaleBasisfunction(func, m, in_mesh):
