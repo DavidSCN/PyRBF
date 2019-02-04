@@ -44,7 +44,7 @@ def kernel(args):
 
 def main():
     parallel = True
-    workers = 9
+    workers = 10
     writeCSV = True
     
     # mesh_sizes = np.linspace(10, 5000, num = 50)
