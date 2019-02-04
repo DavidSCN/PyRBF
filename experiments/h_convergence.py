@@ -16,30 +16,35 @@ def kernel(args):
 
     in_vals = testfunction(in_mesh)
     b = bf(shape_parameter = bf.shape_param_from_m(m, in_mesh))
-    
-    interp = RBF(b, in_mesh, in_vals, rescale=False)
-
-    # Compute the error here, for performance reasons
-    error = interp(test_mesh) - testfunction(test_mesh)
 
     print("({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
-        runCounter = runCounter.value, runTotal = runTotal, interp = interp,
+        runCounter = runCounter.value, runTotal = runTotal, interp = RBF.__name__,
         testfunction = testfunction, b = b, mesh_size = mesh_size, m = m))
 
-    
+
+    try:
+        interp = RBF(b, in_mesh, in_vals, rescale=False)
+        error = interp(test_mesh) - testfunction(test_mesh)
+        condC = interp.condC
+    except np.linalg.LinAlgError as e:
+        print(e)
+        interp = RBF.__name__ # if exception is raised in interp ctor
+        error = np.full_like(test_mesh, np.NaN)
+        condC = np.NaN
+
     return { "h" : 1 / mesh_size,
              "RBF" : str(interp),
              "BF" : str(b),
              "RMSE" : np.sqrt((error ** 2).mean()),
              "InfError" : np.linalg.norm(error, ord=np.inf),
-             "ConditionC" : interp.condC,
+             "ConditionC" : condC,
              "Testfunction" : str(testfunction),
              "m" : m}
 
 
 def main():
     parallel = True
-    workers = 10
+    workers = 9
     writeCSV = True
     
     # mesh_sizes = np.linspace(10, 5000, num = 50)
@@ -66,7 +71,7 @@ def main():
            basisfunctions.CompactPolynomialC0, basisfunctions.CompactThinPlateSplineC2]
     RBFs = [rbf.NoneConsistent, rbf.SeparatedConsistent]
     tfs = [testfunctions.Highfreq(), testfunctions.Lowfreq(), testfunctions.Jump(), testfunctions.Constant(1)]
-    ms = [2, 3, 4, 6, 8]
+    ms = [2, 4, 6, 8, 10]
 
     params = []
     for mesh_size, RBF, bf, tf, m in itertools.product(mesh_sizes, RBFs, bfs, tfs, ms):
