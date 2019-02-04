@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """ Plots RMSE over mesh density h (number of data sites). """
 
 import concurrent.futures, itertools, multiprocessing
@@ -12,7 +13,7 @@ def kernel(args):
 
     mesh_size, RBF, bf, testfunction, m = args
     in_mesh = np.linspace(0, 1, num = int(mesh_size))
-    test_mesh = np.linspace(0.1, 0.9, 50000)
+    test_mesh = np.linspace(0.16, 0.84, 40000) # padding of 0.16
 
     in_vals = testfunction(in_mesh)
     b = bf(shape_parameter = bf.shape_param_from_m(m, in_mesh))
@@ -73,6 +74,8 @@ def main():
     tfs = [testfunctions.Highfreq(), testfunctions.Lowfreq(), testfunctions.Jump(), testfunctions.Constant(1)]
     ms = [4, 6, 8, 12, 16]
 
+    print("Minimum padding needed to avoid boundary effects =", 1/np.min(mesh_sizes) * max(ms))
+    
     params = []
     for mesh_size, RBF, bf, tf, m in itertools.product(mesh_sizes, RBFs, bfs, tfs, ms):
         if (not bf.has_shape_param) and (m != ms[0]):
