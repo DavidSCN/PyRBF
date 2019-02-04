@@ -11,8 +11,8 @@ class Basisfunction():
     def __str__(self):
         return type(self).__name__
 
-    @staticmethod
-    def shape_param_from_m(m, in_mesh):
+    @classmethod
+    def shape_param_from_m(cls, m, in_mesh):
         return m
 
     def shaped(self, m, in_mesh):
@@ -39,16 +39,15 @@ class Gaussian(Basisfunction):
         self.s = shape_parameter
       
     def __call__(self, radius):
-        # shape = self.s if shape == None else shape
         radius = np.atleast_1d(radius)
         threshold = np.sqrt( - np.log(10e-9) ) / self.s
         result = np.exp( -np.power(self.s * np.abs(radius), 2))
         result[ radius > threshold ] = 0;
         return result
 
-    @staticmethod
-    def shape_param_from_(m, in_mesh):
-        h_max = Gaussian.h_max(in_mesh)
+    @classmethod
+    def shape_param_from_m(cls, m, in_mesh):
+        h_max = cls.h_max(in_mesh)
         return (2*np.sqrt(-np.log(1e-9))) / (m*h_max)
             
 
@@ -95,6 +94,12 @@ class CompactThinPlateSplineC2(Basisfunction):
         result[ radius >= self.s ] = 0
         return result
 
+    @classmethod
+    def shape_param_from_m(cls, m, in_mesh):
+        h_max = cls.h_max(in_mesh)
+        return 0.5 * m * h_max
+
+
 class CompactPolynomialC0(Basisfunction):
     has_shape_param = True
 
@@ -108,6 +113,11 @@ class CompactPolynomialC0(Basisfunction):
         result =  np.power(1-p, 2)
         result[ radius >= self.s ] = 0
         return result
+
+    @classmethod
+    def shape_param_from_m(cls, m, in_mesh):
+        h_max = cls.h_max(in_mesh)
+        return 0.5 * m * h_max
 
 
 def rescaleBasisfunction(func, m, in_mesh):
