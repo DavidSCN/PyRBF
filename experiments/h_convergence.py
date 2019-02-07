@@ -1,9 +1,27 @@
 #!/usr/bin/env python3
-""" Plots RMSE over mesh density h (number of data sites). """
+""" Evaluate RBFs / Basisfunctions / Testfunctions over mesh density h. """
 
 import datetime, concurrent.futures, itertools, multiprocessing
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
 import basisfunctions, rbf, testfunctions
+
+# from ipdb import set_trace
+
+def filter_existing(input_set, df):
+    output_set = []
+    for i in input_set:
+        exists = (
+            (df["MeshSize"] == i["mesh_size"]) &
+            (df["RBF"] == i["RBF"].__name__) &
+            (df["BF"] == i["basisfunction"].__name__) &
+            (df["Testfunction"] == str(i["testfunction"])) &
+            (df["m"] == i["m"])
+        ).any()
+        if not exists:
+            output_set.append(i)
+
+    print("Filtered from", len(input_set), "to", len(output_set))
+    return output_set
 
 
 def unpack_args_wrapper(args):
@@ -16,7 +34,7 @@ def kernel(mesh_size, RBF, basisfunction, testfunction, m):
     with runCounter.get_lock():
         runCounter.value += 1
 
-    in_mesh = np.linspace(0, 1, num = int(mesh_size))
+    in_mesh = np.linspace(0, 1, num = mesh_size)
     test_mesh = np.linspace(0.16, 0.84, 40000) # padding of 0.16
 
     in_vals = testfunction(in_mesh)
@@ -38,6 +56,7 @@ def kernel(mesh_size, RBF, basisfunction, testfunction, m):
         condC = np.NaN
 
     return { "h" : 1 / mesh_size,
+             "MeshSize" : mesh_size,
              "RBF" : str(interp),
              "BF" : str(bf),
              "RMSE" : np.sqrt((error ** 2).mean()),
@@ -66,17 +85,12 @@ def main():
     # mesh_sizes = np.linspace(10, 200, num = 2, dtype = int)
     # mesh_sizes = np.logspace(10, 14, base = 2, num = 40) # = [1024, 16384]
 
-    # Output of np..geomspace(100, 15000, num = 40), not available at neon
-    mesh_sizes = np.array([  100.        ,   113.70962094,   129.29877894,   147.02515141,
-                             167.18174235,   190.1017255 ,   216.16395146,   245.79920981,
-                             279.49734974,   317.81537692,   361.38666038,   410.93140164,
-                             467.26853912,   531.32928459,   604.17251544,   687.00227711,
-                             781.18768514,   888.28555558,  1010.0661381 ,  1148.54237685,
-                             1306.00318302,  1485.05126885,  1688.64616853,  1920.15315722,
-                             2183.39887649,  2482.73458601,  2823.10808664,  3210.14550398,
-                             3650.24428412,  4150.67893877,  4719.72128761,  5366.77718545,
-                             6102.54199414,  6939.17736909,  7890.51228258,  8972.27160655,
-                             10202.3360333 , 11601.03763024, 13191.49591417, 15000.        ])
+    # Output of np.geomspace(100, 15000, num = 40, dtype = int) , not available at neon
+    mesh_sizes = np.array([  100,   113,   129,   147,   167,   190,   216,   245,   279,
+                             317,   361,   410,   467,   531,   604,   687,   781,   888,
+                             1010,  1148,  1306,  1485,  1688,  1920,  2183,  2482,  2823,
+                             3210,  3650,  4150,  4719,  5366,  6102,  6939,  7890,  8972,
+                             10202, 11601, 13191, 15000])
 
 
     # mesh_sizes = np.array([100, 200])
@@ -96,6 +110,9 @@ def main():
             # skip iteration when the function has no shape parameter and it's not the first iteration in m
             continue
 
+        if not bf.has_shape_param:
+            m = np.NaN
+
         params.append({"mesh_size" : mesh_size, "RBF" : RBF, "basisfunction" : bf, "testfunction" : tf, "m" : m})
 
 
@@ -111,13 +128,17 @@ def main():
                           # tfs, [0.1, 0.5, 1, 1.5])
     # )
 
+    try:
+        df = pd.read_pickle("h_convergence.pkl")
+        params = filter_existing(params, df)
+    except FileNotFoundError:
+        df = pd.DataFrame()        
+    
     global runTotal
     runTotal = len(params)
 
     global runCounter
     runCounter = multiprocessing.Value("i", 0) # i is type id for integer
-
-    df = pd.DataFrame()
     
     chunks = [params[i:i + chunk_size] for i in range(0, len(params), chunk_size)]
 
@@ -133,8 +154,7 @@ def main():
 
         print("Chunk computed, writing...")
 
-        df = df.append(pd.DataFrame(list(results)))
-        df.set_index("h")
+        df = df.append(pd.DataFrame(list(results)).set_index("h"))
         write(df, writeCSV)
 
 
