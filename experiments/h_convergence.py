@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ Plots RMSE over mesh density h (number of data sites). """
 
-import concurrent.futures, itertools, multiprocessing
+import datetime, concurrent.futures, itertools, multiprocessing
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
 import basisfunctions, rbf, testfunctions
 
@@ -18,7 +18,8 @@ def kernel(args):
     in_vals = testfunction(in_mesh)
     b = bf(shape_parameter = bf.shape_param_from_m(m, in_mesh))
 
-    print("({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
+    print("{datetime}: ({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
+        datetime = str(datetime.datetime.now()),
         runCounter = runCounter.value, runTotal = runTotal, interp = RBF.__name__,
         testfunction = testfunction, b = b, mesh_size = mesh_size, m = m))
 
@@ -43,10 +44,21 @@ def kernel(args):
              "m" : m}
 
 
+
+def write(df, writeCSV):
+    df.to_pickle("h_convergence.pkl")
+
+    if writeCSV:
+        df.to_csv("h_convergence.csv")
+        for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
+            group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
+
+
 def main():
     parallel = True
-    workers = 10
+    workers = 8
     writeCSV = True
+    chunk_size = 20
     
     # mesh_sizes = np.linspace(10, 5000, num = 50)
     # mesh_sizes = np.linspace(10, 200, num = 2, dtype = int)
@@ -101,25 +113,27 @@ def main():
     runTotal = len(params)
 
     global runCounter
-    runCounter = multiprocessing.Value("i", 0)
+    runCounter = multiprocessing.Value("i", 0) # i is type id for integer
+
+    df = pd.DataFrame()
     
-    if parallel:
-        with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
-            result = executor.map(kernel, params)
-    else:
+    chunks = [params[i:i + chunk_size] for i in range(0, len(params), chunk_size)]
+
+    for chunk in chunks:
         result = []
-        for p in params:
-            result.append(kernel(p))
-        
-    df = pd.DataFrame(list(result))
-    df = df.set_index("h")
+        if parallel:
+            with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
+                result = executor.map(kernel, chunk)
+        else:
+            for p in chunk:
+                result.append(kernel(p))
 
-    df.to_pickle("h_convergence.pkl")
+        print("Chunk computed, writing...")
 
-    if writeCSV:
-        df.to_csv("h_convergence.csv")
-        for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
-            group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
+        df = df.append(pd.DataFrame(list(result)))
+        df.set_index("h")
+        write(df, writeCSV)
+
 
     print(df)
 
