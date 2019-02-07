@@ -6,26 +6,29 @@ import numpy as np, pandas as pd, matplotlib.pyplot as plt
 import basisfunctions, rbf, testfunctions
 
 
-def kernel(args):
+def unpack_args_wrapper(args):
+    """ Wrapper to perform dictionary argument unpacking. """
+    return kernel(**args)
+
+
+def kernel(mesh_size, RBF, basisfunction, testfunction, m):
     global runCounter, runTotal
     with runCounter.get_lock():
         runCounter.value += 1
 
-    mesh_size, RBF, bf, testfunction, m = args
     in_mesh = np.linspace(0, 1, num = int(mesh_size))
     test_mesh = np.linspace(0.16, 0.84, 40000) # padding of 0.16
 
     in_vals = testfunction(in_mesh)
-    b = bf(shape_parameter = bf.shape_param_from_m(m, in_mesh))
+    bf = basisfunction(shape_parameter = basisfunction.shape_param_from_m(m, in_mesh))
 
     print("{datetime}: ({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
         datetime = str(datetime.datetime.now()),
         runCounter = runCounter.value, runTotal = runTotal, interp = RBF.__name__,
-        testfunction = testfunction, b = b, mesh_size = mesh_size, m = m))
-
+        testfunction = testfunction, b = bf, mesh_size = mesh_size, m = m))
 
     try:
-        interp = RBF(b, in_mesh, in_vals, rescale=False)
+        interp = RBF(bf, in_mesh, in_vals, rescale=False)
         error = interp(test_mesh) - testfunction(test_mesh)
         condC = interp.condC
     except np.linalg.LinAlgError as e:
@@ -36,13 +39,12 @@ def kernel(args):
 
     return { "h" : 1 / mesh_size,
              "RBF" : str(interp),
-             "BF" : str(b),
+             "BF" : str(bf),
              "RMSE" : np.sqrt((error ** 2).mean()),
              "InfError" : np.linalg.norm(error, ord=np.inf),
              "ConditionC" : condC,
              "Testfunction" : str(testfunction),
              "m" : m}
-
 
 
 def write(df, writeCSV):
@@ -94,7 +96,7 @@ def main():
             # skip iteration when the function has no shape parameter and it's not the first iteration in m
             continue
 
-        params.append((mesh_size, RBF, bf, tf, m))
+        params.append({"mesh_size" : mesh_size, "RBF" : RBF, "basisfunction" : bf, "testfunction" : tf, "m" : m})
 
 
     # params = itertools.chain(
@@ -120,17 +122,18 @@ def main():
     chunks = [params[i:i + chunk_size] for i in range(0, len(params), chunk_size)]
 
     for chunk in chunks:
-        result = []
+        results = []
+        
         if parallel:
             with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
-                result = executor.map(kernel, chunk)
+                results = executor.map(unpack_args_wrapper, chunk)
         else:
             for p in chunk:
-                result.append(kernel(p))
+                results.append(kernel(**p))
 
         print("Chunk computed, writing...")
 
-        df = df.append(pd.DataFrame(list(result)))
+        df = df.append(pd.DataFrame(list(results)))
         df.set_index("h")
         write(df, writeCSV)
 
