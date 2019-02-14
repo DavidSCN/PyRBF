@@ -97,7 +97,7 @@ class SeparatedConsistent(RBF):
     def __call__(self, out_mesh):
         out_mesh = mesh.coordify(out_mesh)
         A = self.eval_BF(out_mesh, self.in_mesh)
-        V = np.zeros( [out_mesh.shape[0], out_mesh.shape[1] +1 ])
+        V = np.zeros( [out_mesh.shape[0], out_mesh.shape[1] + 1 ])
         V[:, 0] = 1
         V[:, 1:] = out_mesh
 
@@ -278,13 +278,10 @@ class SeparatedConservative(RBF):
 
         f_xi = self.in_vals
 
-        # import ipdb; ipdb.set_trace()
-
         QQ, QR = scipy.linalg.qr(Q, mode = "economic")
 
         epsilon = V.T @ f_xi
         eta     = A.T @ f_xi
-        # mu      = inv(C) @ eta
         mu      = np.linalg.solve(self.C, eta)
         tau     = Q.T @ mu - epsilon
         sigma   = (QQ @ inv(QR).T) @ tau
