@@ -15,7 +15,7 @@ def filter_existing(input_set, df):
             (df["RBF"] == i["RBF"].__name__) &
             (df["BF"] == i["basisfunction"].__name__) &
             (df["Testfunction"] == str(i["testfunction"])) &
-            (df["m"] == i["m"])
+            (df["m"] == i["m"] if not np.isnan(i["m"]) else True) # comparing np.NaN is not possible
         ).any()
         if not exists:
             output_set.append(i)
@@ -79,7 +79,7 @@ def main():
     parallel = True
     workers = 8
     writeCSV = True
-    chunk_size = 20
+    chunk_size = 30
     
     # mesh_sizes = np.linspace(10, 5000, num = 50)
     # mesh_sizes = np.linspace(10, 200, num = 2, dtype = int)
