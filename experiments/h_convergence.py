@@ -70,8 +70,9 @@ def write(df, writeCSV):
     df.to_pickle("h_convergence.pkl")
 
     if writeCSV:
-        df.to_csv("h_convergence.csv")
-        for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
+        df2 = df.fillna({"m" : 0}) # replace NaN in column m with zero, because groupby drops NaNs
+        df2.to_csv("h_convergence.csv")
+        for name, group in df2.groupby(["RBF", "BF", "Testfunction", "m"]):
             group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
 
 
@@ -157,7 +158,7 @@ def main():
         df = df.append(pd.DataFrame(list(results)).set_index("h"))
         write(df, writeCSV)
 
-
+    write(df, writeCSV) # write out, also if we filtered everything
     print(df)
 
 
