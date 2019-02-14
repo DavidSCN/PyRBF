@@ -15,7 +15,7 @@ def filter_existing(input_set, df):
             (df["RBF"] == i["RBF"].__name__) &
             (df["BF"] == i["basisfunction"].__name__) &
             (df["Testfunction"] == str(i["testfunction"])) &
-            (df["m"] == i["m"] if not np.isnan(i["m"]) else True) # comparing np.NaN is not possible
+            (df["m"] == i["m"])
         ).any()
         if not exists:
             output_set.append(i)
@@ -67,12 +67,12 @@ def kernel(mesh_size, RBF, basisfunction, testfunction, m):
 
 
 def write(df, writeCSV):
+    df.sort_values(["RBF", "BF", "Testfunction", "MeshSize"], inplace=True)
     df.to_pickle("h_convergence.pkl")
 
     if writeCSV:
-        df2 = df.fillna({"m" : 0}) # replace NaN in column m with zero, because groupby drops NaNs
-        df2.to_csv("h_convergence.csv")
-        for name, group in df2.groupby(["RBF", "BF", "Testfunction", "m"]):
+        df.to_csv("h_convergence.csv")
+        for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
             group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
 
 
@@ -112,7 +112,7 @@ def main():
             continue
 
         if not bf.has_shape_param:
-            m = np.NaN
+            m = 0
 
         params.append({"mesh_size" : mesh_size, "RBF" : RBF, "basisfunction" : bf, "testfunction" : tf, "m" : m})
 
@@ -130,10 +130,13 @@ def main():
     # )
 
     try:
-        df = pd.read_pickle("h_convergence.pkl")
+        df = pd.read_csv("h_convergence.csv", index_col = "h")
+        print("Read in data set of size ", len(df))
         params = filter_existing(params, df)
     except FileNotFoundError:
-        df = pd.DataFrame()        
+        df = pd.DataFrame()
+        print("Created new data set.")
+        
     
     global runTotal
     runTotal = len(params)
