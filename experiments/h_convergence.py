@@ -34,11 +34,13 @@ def kernel(mesh_size, RBF, basisfunction, testfunction, m):
     with runCounter.get_lock():
         runCounter.value += 1
 
+    mesh_size = int(mesh_size)
     in_mesh = np.linspace(0, 1, num = mesh_size)
     test_mesh = np.linspace(0.16, 0.84, 40000) # padding of 0.16
 
     in_vals = testfunction(in_mesh)
-    bf = basisfunction(shape_parameter = basisfunction.shape_param_from_m(m, in_mesh))
+    epsilon = basisfunction.shape_param_from_m(m, in_mesh)
+    bf = basisfunction(shape_parameter = epsilon)
 
     print("{datetime}: ({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
         datetime = str(datetime.datetime.now()),
@@ -63,7 +65,8 @@ def kernel(mesh_size, RBF, basisfunction, testfunction, m):
              "InfError" : np.linalg.norm(error, ord=np.inf),
              "ConditionC" : condC,
              "Testfunction" : str(testfunction),
-             "m" : m}
+             "m" : m,
+             "epsilon" : epsilon}
 
 
 def write(df, writeCSV):
@@ -93,6 +96,18 @@ def main():
                              3210,  3650,  4150,  4719,  5366,  6102,  6939,  7890,  8972,
                              10202, 11601, 13191, 15000])
 
+    # Resampling of the output above
+    # mesh_sizes += np.array([  106.5,   138. ,   178.5,   230.5,   298. ,   385.5,   499. ,
+    #                           645.5,   834.5,  1079. ,  1395.5,  1804. ,  2332.5,  3016.5,
+    #                           3900. ,  5042.5,  6520.5,  8431. , 10901.5, 14095.5])
+
+    # some more data points
+    more_points = np.array([  106,   138,   178,   230,   298,   385,   499,   645,   834,
+                              1079,  1395,  1804,  2332,  3016,  3900,  5042,  6520,  8431,
+                              10901, 14095])
+
+    mesh_sizes = np.concatenate([mesh_sizes, more_points])
+    
 
     # mesh_sizes = np.array([100, 200])
 
@@ -133,7 +148,7 @@ def main():
         df = pd.read_csv("h_convergence.csv", index_col = "h")
         print("Read in data set of size ", len(df))
         params = filter_existing(params, df)
-    except FileNotFoundError:
+    except OSError:
         df = pd.DataFrame()
         print("Created new data set.")
         
