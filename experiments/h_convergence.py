@@ -2,7 +2,7 @@
 """ Evaluate RBFs / Basisfunctions / Testfunctions over mesh density h. """
 
 import datetime, concurrent.futures, itertools, multiprocessing
-import numpy as np, pandas as pd, matplotlib.pyplot as plt
+import numpy as np, pandas as pd
 import basisfunctions, rbf, testfunctions
 
 # from ipdb import set_trace
