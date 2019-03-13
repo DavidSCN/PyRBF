@@ -126,6 +126,25 @@ class CompactPolynomialC0(Basisfunction):
         h_max = cls.h_max(in_mesh)
         return  m * h_max
 
+class CompactPolynomialC6(Basisfunction):
+    has_shape_param = True
+
+    def __init__(self, shape_parameter):
+        self.s = shape_parameter
+    
+    def __call__(self, radius):
+        radius = np.abs(radius)
+        result = np.zeros_like(radius)
+        p = radius / self.s
+        result =  np.power(1-p, 8) * (32*np.power(p, 3) + 25*np.power(p, 2) + 8*p + 1)
+        result[ radius >= self.s ] = 0
+        return result
+
+    @classmethod
+    def shape_param_from_m(cls, m, in_mesh):
+        h_max = cls.h_max(in_mesh)
+        return  m * h_max
+
 
 def rescaleBasisfunction(func, m, in_mesh):
     """ Returns the basis function shape parameter, so that it has decayed to < 10^9 at x = m*h. h being the maximum cell width. Assumes in_mesh being sorted."""
