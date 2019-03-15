@@ -30,12 +30,12 @@ def GC(order, element_size, domain_size, domain_start = 0):
 
     coords += domain_start
     np.ndarray.sort(coords)
-    print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
+    # print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
     return coords
 
 def GaussChebyshev_1D(order, element_size, domain_size, domain_start = 0):
     """ Returns coordinates for a 1d Gauss-Chebyshev mesh. """
-    assert(domain_size % element_size == 0)
+    # assert(domain_size % element_size == 0) // uncommented, because of floating point issue
     nodes = np.polynomial.chebyshev.chebgauss(order)[0] # Get GC points on [-1;1]
     nodes *= element_size / 2 # Scale from [-1;1] to element_size
 
@@ -45,7 +45,7 @@ def GaussChebyshev_1D(order, element_size, domain_size, domain_start = 0):
 
     coords += domain_start
     np.ndarray.sort(coords)
-    print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
+    # print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
     return coords
 
 

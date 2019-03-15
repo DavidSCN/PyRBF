@@ -5,7 +5,8 @@ Intention is to demonstrate the effect of the polynomial.
 
 import csv
 import numpy as np, matplotlib.pyplot as plt, pandas as pd
-import basisfunctions, rbf
+from basisfunctions import Gaussian
+import rbf
 
 from ipdb import set_trace
 
@@ -20,8 +21,8 @@ df = pd.DataFrame(index = plot_mesh)
 df.index.name = "x"
 
 m = 2
-bf = basisfunctions.Gaussian().shaped(m, in_mesh)
-print("Shape Parameter =", basisfunctions.Gaussian().shape_param(m, in_mesh))
+bf = Gaussian(Gaussian.shape_param_from_m(m, in_mesh))
+print("Shape Parameter =", Gaussian.shape_param_from_m(m, in_mesh))
 
 plt.plot(in_mesh, in_vals, "d")
 plt.plot(plot_mesh, func(plot_mesh), "-", label = "Testfunction")
