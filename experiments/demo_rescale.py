@@ -1,4 +1,4 @@
-""" Generated data to show the effect of rescaling. Low density basisfunctions used. """
+""" Generates data to show the effect of rescaling. Low density basisfunctions used. """
 
 import pandas
 from rbf import *

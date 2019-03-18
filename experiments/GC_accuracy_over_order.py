@@ -10,7 +10,7 @@ from basisfunctions import Gaussian, CompactPolynomialC0
 
 test_mesh = np.linspace(0, 1, 10000)
 
-ms = [4, 6, 8]
+ms = [10, 40, 80]
 tf_const = testfunctions.Constant(1)
 tf_hf = testfunctions.Highfreq()
 
@@ -27,14 +27,15 @@ for order, m in itertools.product(orders, ms):
     support = h_max * m
     local_m = support / spacing
 
-    epsilon = Gaussian.shape_param_from_m(m, gc_points)
-    bf = Gaussian(epsilon)
-    # epsilon = CompactPolynomialC0.shape_param_from_m(m, gc_points)
-    # bf = CompactPolynomialC0(epsilon)
+    # epsilon = Gaussian.shape_param_from_m(m, gc_points)
+    # bf = Gaussian(epsilon)
+    epsilon = CompactPolynomialC0.shape_param_from_m(m, gc_points)
+    bf = CompactPolynomialC0(epsilon)
     interp_const = rbf.NoneConsistent(bf, gc_points, tf_const(gc_points))
     interp_hf = rbf.NoneConsistent(bf, gc_points, tf_hf(gc_points))
     
-    ss = pd.Series(data = {"ElementSize" : element_size,
+    ss = pd.Series(data = {"BF" : str(bf),
+                           "ElementSize" : element_size,
                            "epsilon" : epsilon,
                            "InfError_Constant" : np.linalg.norm(interp_const.error(tf_const, test_mesh), ord = np.inf),
                            "RMSE_Constant" : interp_const.RMSE(tf_const, test_mesh),
@@ -51,7 +52,7 @@ df.index.name = "Order"
 print(df)
 
 for name, group in df.groupby("m"):
-    group.to_csv("GC_accuracy_over_order_m_" + str(name) + ".csv")
+    group.to_csv("GC_CP_accuracy_over_order_m_" + str(name) + ".csv")
 
 fig, ax1 = plt.subplots()
 ax1.semilogy(df.index, df["InfError_Constant"], label = "InfError_const")

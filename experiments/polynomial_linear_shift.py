@@ -7,15 +7,16 @@ from basisfunctions import *
 
 in_mesh = np.linspace(0, 1, 1000)
 test_mesh = np.linspace(0, 1, 10000)
-shifts = np.linspace(-100, 100, 100)
+shifts = np.linspace(-300, 300, 100)
 
 tf = testfunctions.Highfreq()
 # tf = testfunctions.Constant(3)
 
-bfs = [ VolumeSplines(),
+bfs = [ # VolumeSplines(),
         ThinPlateSplines(),
-        Gaussian(Gaussian.shape_param_from_m(6, in_mesh)),
-        CompactPolynomialC0(CompactPolynomialC0.shape_param_from_m(6, in_mesh))]
+        # Gaussian(Gaussian.shape_param_from_m(6, in_mesh)),
+        # CompactPolynomialC0(CompactPolynomialC0.shape_param_from_m(6, in_mesh))
+    ]
 
 df = pd.DataFrame()
 
@@ -49,7 +50,7 @@ plt.legend()
 plt.show()
 
 for bf in bfs:
-    df["Delta_" + str(bf)] = df["InfError_None_" + str(bf)] - df["InfError_Sep_" + str(bf)]
+    df["Delta_" + str(bf)] = np.abs(df["InfError_None_" + str(bf)] - df["InfError_Sep_" + str(bf)])
     plt.plot(df.index, df["Delta_" + str(bf)], label = str(bf))
 print(df)
 
