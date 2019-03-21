@@ -36,29 +36,22 @@ class RBF:
 
     def eval_BF(self, meshA, meshB):
         """ Evaluates single BF or list of BFs on the meshes. """
+        if meshA.ndim == 1:
+                meshA = meshA[:, np.newaxis]
+        if meshB.ndim == 1:
+                meshB = meshB[:, np.newaxis]
+        dm = scipy.spatial.distance_matrix(meshA, meshB)
+        
         if type(self.basisfunction) is list:
             A = np.empty((len(meshA), len(meshB)))
             # for i, row in enumerate(meshA):
                 # for j, col in enumerate(meshB):
                     # A[i, j] = self.basisfunction[j](row - col)
-            for j, col in enumerate(meshB):
-                A[:,j] = self.basisfunction[j](meshA - col)
+            for j, _ in enumerate(meshB):
+                A[:,j] = self.basisfunction[j](dm[:,j])
         else:
-            # mgrid = np.meshgrid(meshB, meshA)
-            # A = self.basisfunction( np.abs(mgrid[0] - mgrid[1]) )
+            A = self.basisfunction(dm)
 
-            # A = np.zeros([len(meshA), len(meshB)])
-            # for i, x in enumerate(meshA):
-            #     print(i)
-            #     for j, y in enumerate(meshB):
-            #         A[i, j] = self.basisfunction(np.linalg.norm(x-y))
-            if meshA.ndim == 1:
-                meshA = meshA[:, np.newaxis]
-            if meshB.ndim == 1:
-                meshB = meshB[:, np.newaxis]
-            A = scipy.spatial.distance_matrix(meshA, meshB)
-            A = self.basisfunction(A)
-            
         return A
 
     def polynomial(self, out_mesh):
