@@ -1,68 +1,182 @@
-""" Plots RMSE over mesh density h (number of data sites). """
+#!/usr/bin/env python3
+""" Evaluate RBFs / Basisfunctions / Testfunctions over mesh density h. """
 
-import concurrent.futures, itertools
-import numpy as np, pandas as pd, matplotlib.pyplot as plt
+import datetime, concurrent.futures, itertools, multiprocessing
+import numpy as np, pandas as pd
 import basisfunctions, rbf, testfunctions
 
+# from ipdb import set_trace
 
-def kernel(args):
-    mesh_size, RBF, bf, testfunction, m = args
-    in_mesh = np.linspace(0, 1, num = int(mesh_size))
-    test_mesh = np.linspace(0.1, 0.9, 50000)
+def filter_existing(input_set, df):
+    output_set = []
+    for i in input_set:
+        exists = (
+            (df["MeshSize"] == i["mesh_size"]) &
+            (df["RBF"] == i["RBF"].__name__) &
+            (df["BF"] == i["basisfunction"].__name__) &
+            (df["Testfunction"] == str(i["testfunction"])) &
+            (df["m"] == i["m"])
+        ).any()
+        if not exists:
+            output_set.append(i)
+
+    print("Filtered from", len(input_set), "to", len(output_set))
+    return output_set
+
+
+def unpack_args_wrapper(args):
+    """ Wrapper to perform dictionary argument unpacking. """
+    return kernel(**args)
+
+
+def kernel(mesh_size, RBF, basisfunction, testfunction, m):
+    global runCounter, runTotal
+    with runCounter.get_lock():
+        runCounter.value += 1
+
+    mesh_size = int(mesh_size)
+    in_mesh = np.linspace(0, 1, num = mesh_size)
+    test_mesh = np.linspace(0.16, 0.84, 40000) # padding of 0.16
 
     in_vals = testfunction(in_mesh)
-    b = bf.shaped(m, in_mesh)
-    
-    interp = RBF(b, in_mesh, in_vals, rescale=False)
-    print(interp, testfunction, bf, "mesh_size = ", mesh_size, "m =", m)
-        
+    epsilon = basisfunction.shape_param_from_m(m, in_mesh)
+    bf = basisfunction(shape_parameter = epsilon)
+
+    print("{datetime}: ({runCounter} / {runTotal}): {interp}, {testfunction}, {b}, mesh size = {mesh_size}, m = {m}".format(
+        datetime = str(datetime.datetime.now()),
+        runCounter = runCounter.value, runTotal = runTotal, interp = RBF.__name__,
+        testfunction = testfunction, b = bf, mesh_size = mesh_size, m = m))
+
+    try:
+        interp = RBF(bf, in_mesh, in_vals, rescale=False)
+        error = interp(test_mesh) - testfunction(test_mesh)
+        condC = interp.condC
+    except np.linalg.LinAlgError as e:
+        print(e)
+        interp = RBF.__name__ # if exception is raised in interp ctor
+        error = np.full_like(test_mesh, np.NaN)
+        condC = np.NaN
+
     return { "h" : 1 / mesh_size,
-            "RBF" : str(interp),
+             "MeshSize" : mesh_size,
+             "RBF" : str(interp),
              "BF" : str(bf),
-             "RMSE" : interp.RMSE(testfunction, test_mesh),
-             "InfError" : np.linalg.norm(interp.error(testfunction, test_mesh), ord=np.inf),
-             "ConditionC" : interp.condC,
+             "RMSE" : np.sqrt((error ** 2).mean()),
+             "InfError" : np.linalg.norm(error, ord=np.inf),
+             "ConditionC" : condC,
              "Testfunction" : str(testfunction),
-             "m" : m if bf.has_shape_param else 0}
+             "m" : m,
+             "epsilon" : epsilon}
+
+
+def write(df, writeCSV):
+    df.sort_values(["RBF", "BF", "Testfunction", "MeshSize"], inplace=True)
+    df.to_pickle("h_convergence.pkl")
+
+    if writeCSV:
+        df.to_csv("h_convergence.csv")
+        for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
+            group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
 
 
 def main():
-    # mesh_sizes = np.linspace(10, 5000, num = 50)
-    # mesh_sizes = np.linspace(10, 200, num = 2)
-    mesh_sizes = np.logspace(10, 14, base = 2, num = 40) # = [1024, 16384]
-
+    parallel = True
+    workers = 8
+    writeCSV = True
+    chunk_size = 30
     
-    bfs = [basisfunctions.Gaussian(), basisfunctions.ThinPlateSplines(),
-           basisfunctions.VolumeSplines(), basisfunctions.MultiQuadrics()]
+    # mesh_sizes = np.linspace(10, 5000, num = 50)
+    # mesh_sizes = np.linspace(10, 200, num = 2, dtype = int)
+    # mesh_sizes = np.logspace(10, 14, base = 2, num = 40) # = [1024, 16384]
+
+    # Output of np.geomspace(100, 15000, num = 40, dtype = int) , not available at neon
+    mesh_sizes = np.array([  100,   113,   129,   147,   167,   190,   216,   245,   279,
+                             317,   361,   410,   467,   531,   604,   687,   781,   888,
+                             1010,  1148,  1306,  1485,  1688,  1920,  2183,  2482,  2823,
+                             3210,  3650,  4150,  4719,  5366,  6102,  6939,  7890,  8972,
+                             10202, 11601, 13191, 15000])
+
+    # Resampling of the output above
+    # mesh_sizes += np.array([  106.5,   138. ,   178.5,   230.5,   298. ,   385.5,   499. ,
+    #                           645.5,   834.5,  1079. ,  1395.5,  1804. ,  2332.5,  3016.5,
+    #                           3900. ,  5042.5,  6520.5,  8431. , 10901.5, 14095.5])
+
+    # some more data points
+    more_points = np.array([  106,   138,   178,   230,   298,   385,   499,   645,   834,
+                              1079,  1395,  1804,  2332,  3016,  3900,  5042,  6520,  8431,
+                              10901, 14095])
+
+    mesh_sizes = np.concatenate([mesh_sizes, more_points])
+    
+
+    # mesh_sizes = np.array([100, 200])
+
+    bfs = [basisfunctions.Gaussian, basisfunctions.ThinPlateSplines,
+           basisfunctions.VolumeSplines, basisfunctions.MultiQuadrics,
+           basisfunctions.CompactPolynomialC0, basisfunctions.CompactThinPlateSplineC2]
     RBFs = [rbf.NoneConsistent, rbf.SeparatedConsistent]
-    tfs = [testfunctions.highfreq(), testfunctions.lowfreq(), testfunctions.jump()]
-    ms = [4, 6, 8, 10, 14]
+    tfs = [testfunctions.Highfreq(), testfunctions.Lowfreq(), testfunctions.Jump(), testfunctions.Constant(1)]
+    ms = [4, 6, 8, 12, 16]
+
+    print("Minimum padding needed to avoid boundary effects =", 1/np.min(mesh_sizes) * max(ms))
     
     params = []
-
     for mesh_size, RBF, bf, tf, m in itertools.product(mesh_sizes, RBFs, bfs, tfs, ms):
         if (not bf.has_shape_param) and (m != ms[0]):
             # skip iteration when the function has no shape parameter and it's not the first iteration in m
             continue
 
-        params.append((mesh_size, RBF, bf, tf, m))
+        if not bf.has_shape_param:
+            m = 0
+
+        params.append({"mesh_size" : mesh_size, "RBF" : RBF, "basisfunction" : bf, "testfunction" : tf, "m" : m})
 
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers = 10) as executor:
-        result = executor.map(kernel, params)
-    # for p in params:
-        # kernel(**p)
+    # params = itertools.chain(
+        # itertools.product(mesh_sizes, RBFs,
+        #                   [basisfunctions.ThinPlateSplines, basisfunctions.VolumeSplines],
+        #                   tfs, [0]),
+        # itertools.product(mesh_sizes, RBFs,
+        #                   [basisfunctions.Gaussian],
+        #                   tfs, [4, 6, 8, 10, 14]),
+        # itertools.product(mesh_sizes, RBFs,
+                          # [basisfunctions.MultiQuadrics],
+                          # tfs, [0.1, 0.5, 1, 1.5])
+    # )
 
+    try:
+        df = pd.read_csv("h_convergence.csv", index_col = "h")
+        print("Read in data set of size ", len(df))
+        params = filter_existing(params, df)
+    except OSError:
+        df = pd.DataFrame()
+        print("Created new data set.")
+        
+    
+    global runTotal
+    runTotal = len(params)
 
-    df = pd.DataFrame(list(result))
-    df = df.set_index("h")
+    global runCounter
+    runCounter = multiprocessing.Value("i", 0) # i is type id for integer
+    
+    chunks = [params[i:i + chunk_size] for i in range(0, len(params), chunk_size)]
 
-    df.to_pickle("h_convergence.pkl")
-    df.to_csv("h_convergence.csv")
+    for chunk in chunks:
+        results = []
+        
+        if parallel:
+            with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
+                results = executor.map(unpack_args_wrapper, chunk)
+        else:
+            for p in chunk:
+                results.append(kernel(**p))
 
-    for name, group in df.groupby(["RBF", "BF", "Testfunction", "m"]):
-        group.to_csv("h_convergence_" + "_".join(str(g) for g in name) + ".csv")
+        print("Chunk computed, writing...")
 
+        df = df.append(pd.DataFrame(list(results)).set_index("h"))
+        write(df, writeCSV)
+
+    write(df, writeCSV) # write out, also if we filtered everything
     print(df)
 
 

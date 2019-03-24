@@ -1,4 +1,5 @@
 from basisfunctions import *
+import mesh
 
 import functools
 import numpy as np
@@ -13,33 +14,13 @@ dimension = 1
 # func = lambda x: x
 
 
-def coordify(array):
-    """ Changes [a, b, c] to [ [a], [b], [c] ]"""
-    return array[:, np.newaxis] if array.ndim == 1 else array
-    # return np.atleast_2d(array).T
-           
-
-def spacing(a):
-    """ Returns spaces around vertices """
-    spaces = np.zeros_like(a).astype("float")
-    for i, e in enumerate(a[1:-1], start=1):
-        spaces[i] = (a[i+1] - a[i-1]) / 2.0
-
-    spaces[0] = a[1] - a[0]
-    spaces[-1] = a[-1] - a[-2]
-
-    return spaces
-
-
 class RBF:
     def __str__(self):
         return type(self).__name__
 
     def RMSE(self, func, test_mesh):
         """ Returns the root mean squared error. """
-        targets = func(test_mesh)
-        predictions = self(test_mesh)
-        return np.sqrt(((predictions - targets) ** 2).mean())
+        return np.sqrt((self.error(func, test_mesh) ** 2).mean())
 
     def error(self, func, test_mesh):
         return self(test_mesh) - func(test_mesh)
@@ -56,29 +37,22 @@ class RBF:
 
     def eval_BF(self, meshA, meshB):
         """ Evaluates single BF or list of BFs on the meshes. """
+        if meshA.ndim == 1:
+                meshA = meshA[:, np.newaxis]
+        if meshB.ndim == 1:
+                meshB = meshB[:, np.newaxis]
+        dm = scipy.spatial.distance_matrix(meshA, meshB)
+        
         if type(self.basisfunction) is list:
             A = np.empty((len(meshA), len(meshB)))
             # for i, row in enumerate(meshA):
                 # for j, col in enumerate(meshB):
                     # A[i, j] = self.basisfunction[j](row - col)
-            for j, col in enumerate(meshB):
-                A[:,j] = self.basisfunction[j](meshA - col)
+            for j, _ in enumerate(meshB):
+                A[:,j] = self.basisfunction[j](dm[:,j])
         else:
-            # mgrid = np.meshgrid(meshB, meshA)
-            # A = self.basisfunction( np.abs(mgrid[0] - mgrid[1]) )
+            A = self.basisfunction(dm)
 
-            # A = np.zeros([len(meshA), len(meshB)])
-            # for i, x in enumerate(meshA):
-            #     print(i)
-            #     for j, y in enumerate(meshB):
-            #         A[i, j] = self.basisfunction(np.linalg.norm(x-y))
-            if meshA.ndim == 1:
-                meshA = meshA[:, np.newaxis]
-            if meshB.ndim == 1:
-                meshB = meshB[:, np.newaxis]
-            A = scipy.spatial.distance_matrix(meshA, meshB)
-            A = self.basisfunction(A)
-            
         return A
 
     def polynomial(self, out_mesh):
@@ -94,7 +68,7 @@ class RBF:
     
 class SeparatedConsistent(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
-        in_mesh = coordify(in_mesh)
+        in_mesh = mesh.coordify(in_mesh)
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         Q = np.zeros( [in_mesh.shape[0], in_mesh.shape[1] + 1] )
         Q[:, 0] = 1
@@ -115,9 +89,9 @@ class SeparatedConsistent(RBF):
         return self.beta[0] + self.beta[1] * out_mesh
 
     def __call__(self, out_mesh):
-        out_mesh = coordify(out_mesh)
+        out_mesh = mesh.coordify(out_mesh)
         A = self.eval_BF(out_mesh, self.in_mesh)
-        V = np.zeros( [out_mesh.shape[0], out_mesh.shape[1] +1 ])
+        V = np.zeros( [out_mesh.shape[0], out_mesh.shape[1] + 1 ])
         V[:, 0] = 1
         V[:, 1:] = out_mesh
 
@@ -242,10 +216,10 @@ class NoneConservative(RBF):
 class IntegratedConservative(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         self.basisfunction, self.in_vals, self.rescale = basisfunction, in_vals, rescale
-        self.in_mesh = coordify(in_mesh)
+        self.in_mesh = mesh.coordify(in_mesh)
         
     def __call__(self, out_mesh):
-        out_mesh = coordify(out_mesh)
+        out_mesh = mesh.coordify(out_mesh)
         dimension = len(out_mesh[0])
         polyparams = dimension + 1
         # polyparams = 0
@@ -276,11 +250,11 @@ class IntegratedConservative(RBF):
 class SeparatedConservative(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals):
         self.basisfunction, self.in_vals = basisfunction, in_vals
-        self.in_mesh = coordify(in_mesh)
+        self.in_mesh = mesh.coordify(in_mesh)
         
     def __call__(self, out_mesh):
         from scipy.linalg import inv
-        out_mesh = coordify(out_mesh)
+        out_mesh = mesh.coordify(out_mesh)
         dimension = len(out_mesh[0])
         
         self.C = self.eval_BF(out_mesh, out_mesh)
@@ -298,13 +272,10 @@ class SeparatedConservative(RBF):
 
         f_xi = self.in_vals
 
-        # import ipdb; ipdb.set_trace()
-
         QQ, QR = scipy.linalg.qr(Q, mode = "economic")
 
         epsilon = V.T @ f_xi
         eta     = A.T @ f_xi
-        # mu      = inv(C) @ eta
         mu      = np.linalg.solve(self.C, eta)
         tau     = Q.T @ mu - epsilon
         sigma   = (QQ @ inv(QR).T) @ tau

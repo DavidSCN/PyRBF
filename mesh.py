@@ -1,5 +1,24 @@
 import numpy as np
 
+def coordify(array):
+    """ Changes [a, b, c] to [ [a], [b], [c] ]"""
+    return array[:, np.newaxis] if array.ndim == 1 else array
+    # return np.atleast_2d(array).T
+           
+
+
+def spacing(m):
+    """ Returns spaces around vertices """
+    spaces = np.zeros_like(m).astype("float")
+    for i, e in enumerate(m[1:-1], start=1):
+        spaces[i] = (m[i+1] - m[i-1]) / 2.0
+
+    spaces[0] = m[1] - m[0]
+    spaces[-1] = m[-1] - m[-2]
+
+    return spaces
+
+
 def GC(order, element_size, domain_size, domain_start = 0):
     """ Returns coordinates for a 2d Gauss-Chebyshev mesh. """
     assert(domain_size % element_size == 0)
@@ -11,12 +30,12 @@ def GC(order, element_size, domain_size, domain_start = 0):
 
     coords += domain_start
     np.ndarray.sort(coords)
-    print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
+    # print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
     return coords
 
 def GaussChebyshev_1D(order, element_size, domain_size, domain_start = 0):
     """ Returns coordinates for a 1d Gauss-Chebyshev mesh. """
-    assert(domain_size % element_size == 0)
+    # assert(domain_size % element_size == 0) // uncommented, because of floating point issue
     nodes = np.polynomial.chebyshev.chebgauss(order)[0] # Get GC points on [-1;1]
     nodes *= element_size / 2 # Scale from [-1;1] to element_size
 
@@ -26,7 +45,7 @@ def GaussChebyshev_1D(order, element_size, domain_size, domain_start = 0):
 
     coords += domain_start
     np.ndarray.sort(coords)
-    print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
+    # print("Gauss-Chebyshev mesh with", len(coords), "points, h_max =", np.max(coords[1:] - coords[:-1]))
     return coords
 
 
