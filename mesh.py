@@ -7,14 +7,14 @@ def coordify(array):
            
 
 
-def spacing(a):
+def spacing(m):
     """ Returns spaces around vertices """
-    spaces = np.zeros_like(a).astype("float")
-    for i, e in enumerate(a[1:-1], start=1):
-        spaces[i] = (a[i+1] - a[i-1]) / 2.0
+    spaces = np.zeros_like(m).astype("float")
+    for i, e in enumerate(m[1:-1], start=1):
+        spaces[i] = (m[i+1] - m[i-1]) / 2.0
 
-    spaces[0] = a[1] - a[0]
-    spaces[-1] = a[-1] - a[-2]
+    spaces[0] = m[1] - m[0]
+    spaces[-1] = m[-1] - m[-2]
 
     return spaces
 
