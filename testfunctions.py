@@ -36,38 +36,43 @@ class Constant(Testfunction):
 
 # For 3d function coords is expected to be an n x 2 array.
 # [ [x1, y1], [x2, y2], [x3, y3], ...]
-
-def eggholder(coords):
+class Eggholder(Testfunction):
     """ According to https://en.wikipedia.org/wiki/Test_functions_for_optimization
     Eggholder function shifted to [0,1]x[0,1]. """
-    x = (coords[:,0] - 0.5) * 512
-    y = (coords[:,1] - 0.5) * 512
-        
-    return -(y+47) * np.sin(np.sqrt(np.abs(x/2 + y+47))) - x*np.sin(np.sqrt(np.abs(x-(y+47)))) + 400
+
+    def __call__(self, coords):
+        x = (coords[:,0] - 0.5) * 512
+        y = (coords[:,1] - 0.5) * 512
+        return -(y+47) * np.sin(np.sqrt(np.abs(x/2 + y+47))) - x*np.sin(np.sqrt(np.abs(x-(y+47)))) + 400
 
 
-def rosenbrock(coords):
+class Rosenbrock(Testfunction):
     """ https://en.wikipedia.org/wiki/Rosenbrock_function. Shifted from [-2,2] to [0,1] """
-    a = 1
-    b = 100
-    x = (coords[:,0] - 0.5) * 4
-    y = (coords[:,1] - 0.5) * 4
-    return np.square(a-x) + b * np.square((y-np.square(x)))
-    # return scipy.optimize.rosen(coords)
+
+    def __call__(self, coords):
+        a = 1
+        b = 100
+        x = (coords[:,0] - 0.5) * 4
+        y = (coords[:,1] - 0.5) * 4
+        return np.square(a-x) + b * np.square((y-np.square(x)))
+       # return scipy.optimize.rosen(coords)
 
 
-def platform(coords):
+class Platform(Testfunction):
     """ A jump between 4 different niveaus. """
-    vectors = np.piecewise(coords,
-                           [
-                               (coords[:,0] <= 0.5) & (coords[:,1] <= 0.5), # lower right
-                               (coords[:,0] <= 0.5) & (coords[:,1] > 0.5), # lower left
-                               (coords[:,0] > 0.5) & (coords[:,1] > 0.5), # upper left
-                               (coords[:,0] > 0.5) & (coords[:,1] <= 0.5)  # upper right
-                           ],
-                           [ 2, 5, 7, 8 ]
-    )
-    return vectors[:,0]
+
+    def __call__(self, coords):
+        """ Excepts an array of coordinates: [ [x,y], ... ] """
+        vectors = np.piecewise(coords,
+                               [
+                                   (coords[:,0] <= 0.5) & (coords[:,1] <= 0.5), # lower right
+                                   (coords[:,0] <= 0.5) & (coords[:,1] > 0.5), # lower left
+                                   (coords[:,0] > 0.5) & (coords[:,1] > 0.5), # upper left
+                                   (coords[:,0] > 0.5) & (coords[:,1] <= 0.5)  # upper right
+                               ],
+                               [ 2, 5, 7, 8 ]
+        )
+        return vectors[:,0]
 
 
 import matplotlib.pyplot as plt
