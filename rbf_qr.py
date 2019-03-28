@@ -15,7 +15,7 @@ class RBF_QR(RBF):
         self.N = M = N = in_mesh.shape[1]
         # Step 1: Compute jmax + K
         self.K = K = self._get_K(np.float64)
-        print("K=", K)
+        print("K =", K)
         # Step 2: Assemble C
         C = self._get_C()
         # Step 3: QR decomposition of C and R_tilde
@@ -146,8 +146,7 @@ class RBF_QR_1D(RBF_QR):
 
     def _get_T(self):
         def expansion_func(i, x):
-            return np.exp(-x ** 2 * self.shape_param ** 2) \
-                   * np.cos(i * np.arccos(x))
+            return np.exp(-x**2 * self.shape_param**2) * np.cos(i * np.arccos(x))
 
         return [functools.partial(expansion_func, i) for i in range(self.K)]
 

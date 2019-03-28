@@ -9,7 +9,6 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from timeit import default_timer as timer
 import math
 from tqdm import tqdm
-from sympy.matrices import *
 
 def intro_slide():
     X = np.linspace(-5, 5, 100)
@@ -38,24 +37,21 @@ def equidistant_convergence_1d():
         return np.exp(-np.abs(x - 3)**2) + 2
     cond = []
     N_vals = []
-    for N in range(5, 1000):
+    for N in np.linspace(5, 1000, 100):
         halflength = 1
         N_vals.append(N)
-        print("N=", N)
-        X = np.linspace(-halflength, halflength, N)
-        in_mesh = X[np.newaxis, :]
+        print("N =", N)
+        in_mesh = np.linspace(-halflength, halflength, N)
         halflength -= halflength*0.2
-        test_X = np.linspace(-halflength, halflength, 2000)
-        test_mesh = test_X[np.newaxis, :]
-        rbfqr = RBF_QR_1D(1e-5, in_mesh, func(X))
-        error.append(rbfqr.RMSE(lambda mesh: func(mesh[0, :]), test_mesh))
+        test_mesh = np.linspace(-halflength, halflength, 2000)
+        rbfqr = RBF_QR_1D(1e-5, in_mesh, func(in_mesh))
+        error.append(rbfqr.RMSE(func, test_mesh))
         cond.append(np.linalg.cond(rbfqr.A))
         print("Cond QR:", cond[-1])
         print("RMSE QR:", error[-1])
-        separated = SeparatedConsistent(Gaussian().shaped(5, X),
-                                          X, func(X))
+        separated = SeparatedConsistent(Gaussian(Gaussian.shape_param_from_m(5, in_mesh)), in_mesh, func(in_mesh))
         cond_sep.append(separated.condC)
-        error_sep.append(separated.RMSE(func, test_X))
+        error_sep.append(separated.RMSE(func, test_mesh))
         print("RMSE Sep:", error_sep[-1])
     color_qr = "xkcd:red"
     color_poly = "xkcd:blue"
@@ -91,6 +87,7 @@ def gc_convergence_1d():
     cond_sep = []
 
     def func(x):
+        """ Testfunction """
         return np.exp(-np.abs(x - 3)**2) + 2
     cond = []
     N_vals = []
@@ -98,7 +95,7 @@ def gc_convergence_1d():
     for N in range(5, 250):
         halflength = 1
         N_vals.append(N)
-        print("N=", N)
+        print("N =", N)
         X = np.polynomial.chebyshev.chebgauss(N)[0] * halflength
         in_mesh = X[np.newaxis, :]
         halflength -= halflength*0.2
@@ -109,8 +106,7 @@ def gc_convergence_1d():
         cond.append(np.linalg.cond(rbfqr.A))
         print("Cond QR:", cond[-1])
         print("RMSE QR:", error[-1])
-        separated = SeparatedConsistent(Gaussian().shaped(5, X),
-                                          X, func(X))
+        separated = SeparatedConsistent(Gaussian(Gaussian.shape_param_from_m(5, X)), X, func(X))
         cond_sep.append(separated.condC)
         error_sep.append(separated.RMSE(func, test_X))
         print("RMSE Sep:", error_sep[-1])
@@ -311,7 +307,7 @@ def main():
     # intro_slide()
     # combined()
     # equidistant_convergence_1d()
-     gc_convergence_1d()
+    gc_convergence_1d()
     # equidistant_convergence_2d()
     # equidistant_time_2d()
     # gc_convergence_2d()

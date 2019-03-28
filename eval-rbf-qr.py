@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import math
 from tqdm import tqdm
-from sympy.matrices import *
+# from sympy.matrices import *
 import coordinate_helper
 
 def func(x):
@@ -236,8 +236,8 @@ def main():
     # equidistant_convergence_1d()
     # equidistant_convergence_2d()
     # rigged_2d_mesh()
-     test_rbf_qr_3d()
-    # test_rbf_qr_2d()
+    # test_rbf_qr_3d()
+    test_rbf_qr_2d()
     # evalShapeQR()
     # plot_rbf_qr()
     # check_basisfun_2d()
