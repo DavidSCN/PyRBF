@@ -96,19 +96,17 @@ def gc_convergence_1d():
         halflength = 1
         N_vals.append(N)
         print("N =", N)
-        X = np.polynomial.chebyshev.chebgauss(N)[0] * halflength
-        in_mesh = X[np.newaxis, :]
+        in_mesh = np.polynomial.chebyshev.chebgauss(N)[0] * halflength
         halflength -= halflength*0.2
-        test_X = np.linspace(-halflength, halflength, 2000)
-        test_mesh = test_X[np.newaxis, :]
-        rbfqr = RBF_QR_1D(1e-5, in_mesh, func(X))
-        error.append(rbfqr.RMSE(lambda mesh: func(mesh[0, :]), test_mesh))
+        test_mesh = np.linspace(-halflength, halflength, 2000)
+        rbfqr = RBF_QR_1D(1e-5, in_mesh, func(in_mesh))
+        error.append(rbfqr.RMSE(func, test_mesh))
         cond.append(np.linalg.cond(rbfqr.A))
         print("Cond QR:", cond[-1])
         print("RMSE QR:", error[-1])
-        separated = SeparatedConsistent(Gaussian(Gaussian.shape_param_from_m(5, X)), X, func(X))
+        separated = SeparatedConsistent(Gaussian(Gaussian.shape_param_from_m(5, in_mesh)), in_mesh, func(in_mesh))
         cond_sep.append(separated.condC)
-        error_sep.append(separated.RMSE(func, test_X))
+        error_sep.append(separated.RMSE(func, test_mesh))
         print("RMSE Sep:", error_sep[-1])
     color_qr = "xkcd:red"
     color_poly = "xkcd:blue"
