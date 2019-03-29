@@ -108,7 +108,7 @@ class RBF_QR_1D(RBF_QR):
         if center is None or extents is None:
             center, extents = get_center_extents(in_mesh*(1 + 1e-6))
         in_mesh, translate, scale = translate_scale_hyperrectangle(np.copy(in_mesh), center, extents)
-        assert (in_mesh[0, :].max() <= 1)
+        assert(in_mesh[0, :].max() <= 1)
         super().__init__(shape_param, in_mesh, in_vals, translate, scale)
 
     def __call__(self, out_mesh):
