@@ -104,10 +104,11 @@ class SeparatedConsistentFitted(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False, degree = 2):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         
-        self.poly = np.poly1d(np.polyfit(in_mesh, in_vals, degree))
-
+        # self.poly = np.poly1d(np.polyfit(in_mesh, in_vals, degree))
+        self.polyfit = np.polynomial.polynomial.Polynomial.fit(in_mesh, in_vals, deg = degree)
+        
         self.C = self.eval_BF(in_mesh, in_mesh)
-        rhs = in_vals - self.poly(in_mesh)
+        rhs = in_vals - self.polyfit(in_mesh)
         self.gamma = np.linalg.solve(self.C, rhs)
         
         self.rescaled = rescale
@@ -125,7 +126,7 @@ class SeparatedConsistentFitted(RBF):
         if self.rescaled:
             out_vals = out_vals / (A @ self.gamma_rescaled)
 
-        return out_vals + self.poly(out_mesh)
+        return out_vals + self.polyfit(out_mesh)
 
 
 

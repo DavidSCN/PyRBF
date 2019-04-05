@@ -5,7 +5,7 @@ from mesh import GaussChebyshev_1D
 from ipdb import set_trace
 import matplotlib.pyplot as plt
 import math
-import mesh
+import mesh, testfunctions
 
 def speedup_and_efficiency(procs, times):
     T1 = times[0] * procs[0] # Define baseline
@@ -248,7 +248,8 @@ def plot_rmse_cond():
     """ Plots over a range of shape parameters. """
     in_mesh = np.linspace(1, 4, 192)
     # in_mesh = GaussChebyshev(12, 0.25, 4, 1)
-    in_vals = func(in_mesh)
+    tf = testfunctions.Highfreq()
+    in_vals = tf(in_mesh)
     test_mesh = np.linspace(1, 4, 2000)
         
     ms = np.linspace(1, 20, 50)
@@ -263,7 +264,7 @@ def plot_rmse_cond():
     
     for m in ms:
         print("Working on m =", m)
-        bf = functools.partial(Gaussian, shape=rescaleBasisfunction(Gaussian, m, in_mesh))
+        bf = Gaussian(Gaussian.shape_param_from_m(m, in_mesh))
         
         separated.append(SeparatedConsistent(bf, in_mesh, in_vals, False))
         integrated.append(IntegratedConsistent(bf, in_mesh, in_vals))
@@ -273,13 +274,13 @@ def plot_rmse_cond():
         sep_fitresc.append(SeparatedConsistentFitted(bf, in_mesh, in_vals, True))
 
     fig, ax1 = plt.subplots()
-    ax1.loglog([i.RMSE(func, test_mesh) for i in no_pol], [i.condC for i in no_pol], label = "No Polynomial")
-    ax1.loglog([i.RMSE(func, test_mesh) for i in integrated],[i.condC for i in integrated], label = "Integrated Polynomial")
-    ax1.loglog([i.RMSE(func, test_mesh) for i in separated], [i.condC for i in separated], label = "Separated Polynomial")
+    ax1.loglog([i.RMSE(tf, test_mesh) for i in no_pol], [i.condC for i in no_pol], label = "No Polynomial")
+    ax1.loglog([i.RMSE(tf, test_mesh) for i in integrated],[i.condC for i in integrated], label = "Integrated Polynomial")
+    ax1.loglog([i.RMSE(tf, test_mesh) for i in separated], [i.condC for i in separated], label = "Separated Polynomial")
     
-    ax1.loglog([i.RMSE(func, test_mesh) for i in no_pol_res], [i.condC for i in no_pol_res], label = "No polynomial, rescaled")
-    ax1.loglog([i.RMSE(func, test_mesh) for i in separated_res], [i.condC for i in separated_res], label = "Separated polynomial, rescaled")
-    ax1.loglog([i.RMSE(func, test_mesh) for i in sep_fitresc], [i.condC for i in sep_fitresc], label = "Separated, fitted, rescaled")
+    ax1.loglog([i.RMSE(tf, test_mesh) for i in no_pol_res], [i.condC for i in no_pol_res], label = "No polynomial, rescaled")
+    ax1.loglog([i.RMSE(tf, test_mesh) for i in separated_res], [i.condC for i in separated_res], label = "Separated polynomial, rescaled")
+    ax1.loglog([i.RMSE(tf, test_mesh) for i in sep_fitresc], [i.condC for i in sep_fitresc], label = "Separated, fitted, rescaled")
     
     ax1.set_ylabel("Condition")
     ax1.set_xlabel("RMSE")
@@ -292,8 +293,8 @@ def plot_rmse_cond():
 
     ax1.legend()
     # plt.grid()
-    plt.savefig("rmse_cond.pdf")
-    # plt.show()
+    # plt.savefig("rmse_cond.pdf")
+    plt.show()
      
     
 def gc_m_order():
@@ -480,8 +481,8 @@ def main():
     # plot_basic_consistent()
     # plot_basic_conservative()
     # plot_mesh_sizes()
-    # plot_rmse_cond()
-    plot_shape_parameters()
+    plot_rmse_cond()
+    # plot_shape_parameters()
     # gc_m_order()
     # points_s()
     # gc_m_order()
