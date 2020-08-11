@@ -5,7 +5,9 @@ import functools
 import numpy as np
 import scipy.sparse.linalg
 import scipy.spatial
-
+from scipy.linalg import lu
+from scipy.linalg import svd
+from sklearn.decomposition import TruncatedSVD
 
 dimension = 1
 # func = functools.partial(lambda x: Gaussian(x-1, 1) + 2)
@@ -181,6 +183,85 @@ class NoneConsistent(RBF):
         if self.rescaled:
             out_vals = out_vals / (A @ self.gamma_rescaled)
         return out_vals
+
+
+class NoneConsistent(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        
+        self.rescaled = rescale
+        if rescale:
+            self.gamma_rescaled = np.linalg.solve(self.C, np.ones_like(in_mesh))
+
+
+    def __call__(self, out_mesh):
+        A = self.eval_BF(out_mesh, self.in_mesh)
+        out_vals = A @ self.gamma
+        if self.rescaled:
+            out_vals = out_vals / (A @ self.gamma_rescaled)
+        return out_vals
+
+class LOOCV(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.Cinv = np.linalg.inv(self.C)
+        #print(self.Cinv)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        
+        self.rescaled = rescale
+
+    def __call__(self):
+        error = []
+        for i in range(0,len(self.in_mesh)):
+          error.append(self.gamma[i]/self.Cinv[i][i])
+        return error
+
+class LUDecomp(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.Cinv = np.linalg.inv(self.C)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        
+        self.rescaled = rescale
+
+    def __call__(self):
+        p, l, u = lu(self.C)
+        return p, l, u
+
+class fullSVD(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.Cinv = np.linalg.inv(self.C)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        
+        self.rescaled = rescale
+
+    def __call__(self):
+        U, s, Vh = svd(self.C)
+        return self.C, U, s, Vh
+
+class truncSVD(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.Cinv = np.linalg.inv(self.C)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        
+        self.rescaled = rescale
+
+    def __call__(self):
+        U, s, Vh = svd(self.C)
+        return self.C, U, s, Vh
 
 
 class NoneConservative(RBF):
