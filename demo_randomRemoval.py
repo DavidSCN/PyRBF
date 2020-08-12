@@ -14,7 +14,7 @@ from scipy import spatial
 start = time.time()
 j = 0
 
-nPoints = 4000
+nPoints = 8000
 
 print("Number of points: ",nPoints)
 in_mesh = np.random.random((nPoints,2))
@@ -34,33 +34,38 @@ maxNN = max(nearest_neighbors)
 ntesting = 320
 random_point_removal_all = random.sample(range(0, nPoints), ntesting)
 
-for i in range(0,5):
+for i in range(0,3):
 	#print(random_point_removal)
 	ntesting = int(ntesting/2)
 	random_point_removal = []
 	for i in range(0,ntesting):
 		random_point_removal.append(random_point_removal_all[i])
-	basis_mesh = np.random.random((nPoints-ntesting,2))
+	basis_mesh = np.random.random((nPoints,2))
+	partial_mesh = np.random.random((nPoints-ntesting,2))
 	evaluate_mesh = np.random.random((ntesting,2))
 	evalAppend = 0
-	basisAppend = 0
+	partialAppend = 0
 	for i in range(0,nPoints):
 		if i in random_point_removal:
 			evaluate_mesh[evalAppend,0] = in_mesh[i,0]
-			evaluate_mesh[evalAppend,1] = in_mesh[i,1]
+			evaluate_mesh[evalAppend,1] = in_mesh[i,1]	
+			basis_mesh[i,0] = 0
+			basis_mesh[i,1] = 0
 			evalAppend += 1
 		else:
-			basis_mesh[basisAppend,0] = in_mesh[i,0]
-			basis_mesh[basisAppend,1] = in_mesh[i,1]
-			basisAppend += 1
+			partial_mesh[partialAppend,0] = in_mesh[i,0]
+			partial_mesh[partialAppend,1] = in_mesh[i,1]
+			basis_mesh[i,0] = in_mesh[i,0]
+			basis_mesh[i,1] = in_mesh[i,1]
+			partialAppend += 1
 	#print(evaluate_mesh)
 	mesh_size = maxNN
 	func = lambda x,y: np.sin(10*x)+(0.0000001*y)
 	one_func = lambda x: np.ones_like(x)
-	for k in range(5,6):
+	for k in range(3,9):
 		for j in range(0,nPoints):
 			shape_params[j]=4.55228/(k*maxNN)
-		shape_parameter = 4.55228/((5)*mesh_size)
+		shape_parameter = 4.55228/((k)*mesh_size)
 		#print("shape_parameter: ",shape_parameter)
 		bf = basisfunctions.Gaussian(shape_parameter)
 		#func = lambda x: (x-0.1)**2 + 1
@@ -73,9 +78,9 @@ for i in range(0,5):
 		#plot_mesh = np.linspace(0, 1, 250)
 		in_vals = func(in_mesh[:,0],in_mesh[:,1])
 		evaluate_vals = func(evaluate_mesh[:,0],evaluate_mesh[:,1])
-		basis_vals = func(basis_mesh[:,0],basis_mesh[:,1])
+		partial_vals = func(partial_mesh[:,0],partial_mesh[:,1])
 	
-		interp = NoneConsistent(bf, basis_mesh, basis_vals, rescale = False)	
+		interp = NoneConsistent(bf, partial_mesh, partial_vals, rescale = False)	
 		#error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
 		#errors = error_LOOCV() 
 		#print("Error: ", max(evaluate_vals - interp(evaluate_mesh)))
@@ -89,6 +94,7 @@ for i in range(0,5):
 		plt.plot(evaluate_mesh, evaluate_vals - interp(evaluate_mesh), label = "Error on selected points")
 		errors = evaluate_vals - interp(evaluate_mesh)
 		#print("Testing error: ",errors)
+		print("k = ", k)
 		print("Random removal - Average Testing error: ", np.average(errors), " - Max Testing error: ", max(errors))
 
 	#plt.tight_layout()

@@ -1,4 +1,5 @@
 """ Generates data to show the effect of rescaling. Low density basisfunctions used. """
+""" Creates a local RBF around each nearest neighbour point on input mesh """
 
 import pandas
 from rbf import *
@@ -10,22 +11,92 @@ import mesh
 import math
 from scipy import spatial
 
+class Block:
+	def __str__(self):
+        	return type(self).__name_
+
+	def __init__(self, pointsInBlock):
+		print("pointsInBlock: ", pointsInBlock)
+
+	def __call__(self):
+		print("pointsInBlock again: ", pointsInBlock)
+		return pointsInBlock
+
+
 start = time.time()
 
-#x = np.linspace(0, 1, 10)
-#y = np.linspace(2, 4, 10)
-#print(x.ravel())
-#tree = spatial.KDTree(list(zip(x.ravel(), y.ravel())))
-#pts = [0.46, 2.94]
+nPoints = 100
+nPointsOut = 100
+print("Number of points on input mesh: ",nPoints)
+print("Number of points on output mesh: ",nPointsOut)
+#in_mesh = np.linspace((1,2),(10,20),nPoints)
+in_mesh = np.random.random((nPoints,2))
+out_mesh = np.random.random((nPointsOut,2))
+tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 
-#print(tree.query(pts,2))
+plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh",s=2)
+plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")
+plt.show()
 
-for i in range(0,1):
-	nPoints = 16000
-	print("Number of points: ",nPoints)
-	#in_mesh = np.linspace((1,2),(10,20),nPoints)
-	in_mesh = np.random.random((nPoints,2))
-	tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
+nBlocksX = 5
+nBlocksY = 5
+pointsInBlock = []
+nearest_neighbors = 0
+
+for i in range(0,nPoints):
+	if in_mesh[i,0] > 0.2 and in_mesh[i,0] < 0.4:
+		if in_mesh[i,1] > 0.2 and in_mesh[i,1] < 0.4:
+			pointsInBlock.append(i)
+
+#print("Points: ", pointsInBlock)
+
+nnAmount = 5
+
+for j in range(0,int(len(pointsInBlock))):
+	i = pointsInBlock[j]
+	queryPt = (in_mesh[i,0],in_mesh[i,1])
+	nnArray = tree.query(queryPt,nnAmount)	
+	print(nnArray)
+	if nnArray[0][1] > nearest_neighbors:
+		nearest_neighbors = nnArray[0][1]
+	#print(nnArray[1][j])
+	for i in range(0,nnAmount):
+		if nnArray[1][i] in pointsInBlock:
+			nnAmount = nnAmount
+		else:
+			pointsInBlock.append(nnArray[1][i])
+
+#print("Points: ", pointsInBlock)
+setOfBlocks = []
+setOfBlocks.append(Block(pointsInBlock))
+myPoints = setOfBlocks[0]
+print("myPoints: ", myPoints)
+
+
+func = lambda x,y: np.sin(2*x)+(0.0000001*y)
+in_vals = func(in_mesh[:,0],in_mesh[:,1])
+
+shape_parameter = 4.55228/(5*nearest_neighbors)
+bf = basisfunctions.Gaussian(shape_parameter)
+
+local_mesh = np.random.random((int(len(pointsInBlock)),2))
+for i in range(0,int(len(pointsInBlock))):
+	local_mesh[i,0] = in_mesh[pointsInBlock[i],0]
+	local_mesh[i,1] = in_mesh[pointsInBlock[i],1]
+
+local_vals = func(local_mesh[:,0],local_mesh[:,1])
+print(local_mesh)
+
+error_LOOCV = LOOCV(bf, local_mesh, local_vals, rescale = False)
+errors = error_LOOCV()
+
+print("LOOCV - Average Error: ", np.average(errors), " - and max error: ", max(errors))
+
+
+
+"""
+for i in range(0,1):			#This runs one block 
+	
 	nearest_neighbors = []
 	shape_params = []
 	for j in range(0,nPoints):
@@ -137,3 +208,4 @@ for i in range(0,1):
 
 end = time.time()
 print("Elapsed time: ", end - start)
+"""

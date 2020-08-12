@@ -12,8 +12,8 @@ from scipy import spatial
 
 start = time.time()
 j = 0
-nPoints = 2000
-nPointsOut = 100
+nPoints = 4000
+nPointsOut = 10000
 print("Number of points: ",nPoints)
 in_mesh = np.random.random((nPoints,2))
 out_mesh = np.random.random((nPointsOut,2))
@@ -33,7 +33,7 @@ for j in range(0,nPoints):
 	shape_params.append(0)
 
 for i in range(0,5):
-	ntesting = 10 + i*10
+	ntesting = 100 + i*20
 	#print("nearest_nighbors: ",nearest_neighbors)
 	maxNN = max(nearest_neighbors)
 	random_point_removal = [randint(0, nPoints) for p in range(0, ntesting)]

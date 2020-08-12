@@ -1,25 +1,94 @@
 """ Generates data to show the effect of rescaling. Low density basisfunctions used. """
+""" Halton sequence from https://laszukdawid.com/2017/02/04/halton-sequence-in-python/  """
 
 import pandas
 from rbf import *
 from rbf_2d import *
 import basisfunctions, testfunctions
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 import time
 import mesh
 import math
 from scipy import spatial
+from halton import *
+
+
+nPoints = 1000
+nPointsOut = 100
+
+haltonPoints = halton_sequence(nPoints, 2)
+print("Halton: ",haltonPoints[0][4])
+
+
+x = np.linspace(0,1,10)
+out_vals = []
+print("Number of points on input mesh: ",nPoints)
+print("Number of points on output mesh: ",nPointsOut)
+#in_mesh = np.linspace((1,2),(10,20),nPoints)
+in_mesh = np.random.random((nPoints,2))
+out_mesh = np.random.random((nPointsOut,2))
+tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
+treeOut = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
+
+
+
+for i in range(0,nPoints):
+	in_mesh[i,0] = haltonPoints[0][i]
+	in_mesh[i,1] = haltonPoints[1][i]
+
+func = lambda x,y: np.sin(2*x)+(0.0000001*y)
+in_vals = func(in_mesh[:,0],in_mesh[:,1])
+
+#fig = plt.figure()
+#ax = Axes3D(fig)
+#surf = ax.plot_trisurf(in_mesh[:,0], in_mesh[:,1], in_vals, cmap=cm.jet, linewidth=0.1)
+#fig.colorbar(surf, shrink=0.5, aspect=5)
+#plt.show()
+
+
+for i in range(0,10):
+	for j in range(0,10):
+		out_mesh[j + i*10,1] = x[j]
+		out_mesh[j + i*10,0] = x[i]
+		out_vals.append(0)
+
+treeOut = spatial.KDTree(list(zip(out_mesh[:,0],out_mesh[:,1])))
+
+plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh",s=2)
+plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")
+plt.show()
 
 start = time.time()
 
-#x = np.linspace(0, 1, 10)
-#y = np.linspace(2, 4, 10)
-#print(x.ravel())
-#tree = spatial.KDTree(list(zip(x.ravel(), y.ravel())))
-#pts = [0.46, 2.94]
+nnAmount = 10
 
-#print(tree.query(pts,2))
+for j in range(0,nPoints):
+	queryPt = (in_mesh[j,0],in_mesh[j,1])
+	nnArray = treeOut.query(queryPt,nnAmount)
+	#print(nnArray)
+	for k in range(0,nnAmount):
+		#print(nnArray[1][k])
+		out_vals[nnArray[1][k]] += 1 - min(nnArray[0][k]*10,1)	
 
+#for i in range(0,nPoints):
+#	for j in range(0,nPointsOut):
+#		distanceX = in_mesh[i,0] - out_mesh[j,0]
+#		distanceY = in_mesh[i,1] - out_mesh[j,1]
+#		distance = math.sqrt(math.pow(distanceX,2) + math.pow(distanceY,2))
+#		out_vals[j] += 1 - min(distance*10,1)
+
+end = time.time()
+print("Elapsed time: ", end - start)
+
+fig = plt.figure()
+ax = Axes3D(fig)
+surf = ax.plot_trisurf(out_mesh[:,0], out_mesh[:,1], out_vals, cmap=cm.jet, linewidth=0.1)
+fig.colorbar(surf, shrink=0.5, aspect=5)
+plt.show()
+
+"""
 for i in range(0,1):
 	nPoints = 16000
 	print("Number of points: ",nPoints)
@@ -137,3 +206,5 @@ for i in range(0,1):
 
 end = time.time()
 print("Elapsed time: ", end - start)
+
+"""
