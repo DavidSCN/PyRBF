@@ -204,6 +204,53 @@ class NoneConsistent(RBF):
             out_vals = out_vals / (A @ self.gamma_rescaled)
         return out_vals
 
+class AMLS(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        self.in_vals = in_vals
+        
+        self.rescaled = rescale
+        if rescale:
+            self.gamma_rescaled = np.linalg.solve(self.C, np.ones_like(in_mesh))
+
+
+    def __call__(self, out_mesh):
+        A = self.eval_BF(out_mesh, self.in_mesh)
+        Q = self.in_vals @ self.C
+        for i in range(0,1):
+          res = self.in_vals - Q
+          u = res @ self.C
+          Q += u
+
+        out_vals = A @ self.gamma
+        if self.rescaled:
+            out_vals = out_vals / (A @ self.gamma_rescaled)
+        return out_vals, Q
+
+class AMLSInverse(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.gamma = np.linalg.solve(self.C, in_vals)
+        self.Cinv = np.linalg.inv(self.C)
+        self.in_vals = in_vals
+        
+        self.rescaled = rescale
+        if rescale:
+            self.gamma_rescaled = np.linalg.solve(self.C, np.ones_like(in_mesh))
+
+
+    def __call__(self, out_mesh):
+        A = self.eval_BF(out_mesh, self.in_mesh)
+        out_vals = A @ self.gamma
+        if self.rescaled:
+            out_vals = out_vals / (A @ self.gamma_rescaled)
+        return self.C, self.Cinv
+
 class LOOCV(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction

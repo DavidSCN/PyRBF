@@ -10,14 +10,23 @@ import math
 from random import randint
 import random
 from scipy import spatial
+from numpy import linalg
 
 start = time.time()
 j = 0
 
-nPoints = 8000
+nPoints = 2000
 
 print("Number of points: ",nPoints)
 in_mesh = np.random.random((nPoints,2))
+for i in range(0,nPoints):
+	in_mesh[i,0] = in_mesh[i,0]*in_mesh[i,0]
+	in_mesh[i,1] = in_mesh[i,1]*in_mesh[i,1]
+
+
+plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh", s=2)
+plt.show()
+
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 shape_params = []
@@ -31,18 +40,22 @@ for j in range(0,nPoints):
 #print("nearest_nighbors: ",nearest_neighbors)
 maxNN = max(nearest_neighbors)
 #random_point_removal = [randint(0, nPoints) for p in range(0, ntesting)]
-ntesting = 320
+ntesting = 150
 random_point_removal_all = random.sample(range(0, nPoints), ntesting)
+random_point_removal = []
+for i in range(0,ntesting):
+	random_point_removal.append(random_point_removal_all[i])
 
-for i in range(0,3):
-	#print(random_point_removal)
-	ntesting = int(ntesting/2)
-	random_point_removal = []
-	for i in range(0,ntesting):
-		random_point_removal.append(random_point_removal_all[i])
+for i in range(0,2):
+	#ntesting = int(ntesting/2)
+	ntesting -= 50
+	for g in range(0,50):
+		random_point_removal.pop()
+	print(random_point_removal)
 	basis_mesh = np.random.random((nPoints,2))
 	partial_mesh = np.random.random((nPoints-ntesting,2))
 	evaluate_mesh = np.random.random((ntesting,2))
+
 	evalAppend = 0
 	partialAppend = 0
 	for i in range(0,nPoints):
@@ -62,7 +75,7 @@ for i in range(0,3):
 	mesh_size = maxNN
 	func = lambda x,y: np.sin(10*x)+(0.0000001*y)
 	one_func = lambda x: np.ones_like(x)
-	for k in range(3,9):
+	for k in range(2,15):
 		for j in range(0,nPoints):
 			shape_params[j]=4.55228/(k*maxNN)
 		shape_parameter = 4.55228/((k)*mesh_size)
@@ -95,7 +108,7 @@ for i in range(0,3):
 		errors = evaluate_vals - interp(evaluate_mesh)
 		#print("Testing error: ",errors)
 		print("k = ", k)
-		print("Random removal - Average Testing error: ", np.average(errors), " - Max Testing error: ", max(errors))
+		print("Random removal - Average Testing error: ", np.linalg.norm(errors), " - Max Testing error: ", max(errors))
 
 	#plt.tight_layout()
 	#plt.plot(in_mesh, in_vals, label = "Rescaled Interpolant")

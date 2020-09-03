@@ -11,21 +11,26 @@ import math
 from mpl_toolkits.mplot3d import Axes3D
 from random import randint
 from scipy import spatial
+from halton import *
 
 start = time.time()
 j = 0
 #nPointsRange = [1000,2000,4000,8000,10000,12000,16000]
 for i in range(0,1):
-	nPoints = 16000
-	nPointsOut = 10000
+	nPoints = 2000
+	nPointsOut = 1000
+	haltonPoints = halton_sequence(nPoints, 2)
 	print("Number of points: ",nPoints)
 	#in_mesh = np.linspace((1,2),(10,20),nPoints)
 	in_mesh = np.random.random((nPoints,2))
+	for i in range(0,nPoints):
+		in_mesh[i,0] = haltonPoints[0][i]*haltonPoints[0][i]
+		in_mesh[i,1] = haltonPoints[1][i]
 	out_mesh = np.random.random((nPointsOut,2))
 	#print("in_mesh: ", in_mesh)
-	#plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh")
-	#plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")
-	#plt.show()
+	plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh",s=2)
+	plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh",s=2)
+	plt.show()
 
 	tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 	nearest_neighbors = []
@@ -38,27 +43,30 @@ for i in range(0,1):
 		shape_params.append(0)
 
 	maxNN = max(nearest_neighbors)
-	for j in range(0,nPoints):
-		shape_params[j]=4.55228/(5*maxNN)
-	#shape_parameter = 4.55228/((5)*maxNN)
-	#print("shape_parameter: ",shape_parameter)
-	bf = basisfunctions.Gaussian(list(shape_params))
-	#func = lambda x: (x-0.1)**2 + 1
 	func = lambda x,y: np.sin(10*x)+(0.0000001*y)
 	one_func = lambda x: np.ones_like(x)
-
 	in_vals = func(in_mesh[:,0],in_mesh[:,1])
 	out_vals = func(out_mesh[:,0],out_mesh[:,1])
-	#print(in_vals)
-#	evaluatine_vals = func(evaluate_mesh)
-#	basis_vals = func(basis_mesh)
+	#for j in range(0,nPoints):
+	#	shape_params[j]=4.55228/(5*maxNN)
+	for k in range(1,15):
+		for j in range(0,nPoints):
+			shape_params[j]=4.55228/(k*nearest_neighbors[j])
+		#shape_parameter = 4.55228/((k)*maxNN)
+		#print("shape_parameter: ",shape_parameter)
+		bf = basisfunctions.Gaussian(list(shape_params))
+		#func = lambda x: (x-0.1)**2 + 1
+	
+		#print(in_vals)	
+	#	evaluatine_vals = func(evaluate_mesh)
+#		basis_vals = func(basis_mesh)
 
-	interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-	interp_out_vals = interp(out_mesh)
-	#error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
-	#errors = error_LOOCV() 
-	print("Max Error: ", max(out_vals - interp_out_vals))
-	print("Average Error: ", abs(np.average(out_vals - interp_out_vals)))
+		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+		interp_out_vals = interp(out_mesh)
+		#error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+		#errors = error_LOOCV() 
+		print("Max Error: ", max(out_vals - interp_out_vals))
+		print("Average Error: ", abs(np.average(out_vals - interp_out_vals)))
 	
 	#error_LOOCVSVD = LOOCVSVD(bf, in_mesh, in_vals, rescale = False)
 	#errorsSVD = error_LOOCVSVD() 

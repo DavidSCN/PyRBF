@@ -9,20 +9,31 @@ import mesh
 import math
 from random import randint
 from scipy import spatial
+from halton import *
 
 start = time.time()
 j = 0
-nPoints = 4000
-nPointsOut = 10000
+nPoints = 2000
+nPointsOut = 100
 print("Number of points: ",nPoints)
 in_mesh = np.random.random((nPoints,2))
+
+haltonPoints = halton_sequence(nPoints, 2)
+for i in range(0,nPoints):
+	in_mesh[i,0] = haltonPoints[0][i]
+	in_mesh[i,1] = haltonPoints[1][i]
+
 out_mesh = np.random.random((nPointsOut,2))
+for i in range(0,nPointsOut):
+	out_mesh[i,0] = haltonPoints[0][i] #+ 0.0001
+	out_mesh[i,1] = haltonPoints[1][i] #+ 0.01
+
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 shape_params = []
 
-plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh")
-plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")
+plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh", s=2)
+plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh", s=2)
 plt.show()
 
 for j in range(0,nPoints):
@@ -33,27 +44,35 @@ for j in range(0,nPoints):
 	shape_params.append(0)
 
 for i in range(0,5):
-	ntesting = 100 + i*20
+	ntesting = 100 + i*0
 	#print("nearest_nighbors: ",nearest_neighbors)
 	maxNN = max(nearest_neighbors)
 	random_point_removal = [randint(0, nPoints) for p in range(0, ntesting)]
 	print(random_point_removal)
 	basis_mesh = np.random.random((nPoints,2))
-	evaluate_mesh = np.random.random((ntesting,2))
+	evaluate_mesh_intermediate = np.random.random((ntesting,2))
+	#evaluate_mesh = []
 	evalAppend = 0
 	basisAppend = 0
-	for i in range(0,nPoints):
-		if i in random_point_removal:
-			evaluate_mesh[evalAppend,0] = in_mesh[i,0]
-			evaluate_mesh[evalAppend,1] = in_mesh[i,1]
-			evalAppend += 1
+	for j in range(0,nPoints):
+		if j in random_point_removal:
+			if in_mesh[j,0] > 0.1 and in_mesh[j,0] < 0.9: 
+				if in_mesh[j,1] > 0.1 and in_mesh[j,1] < 0.9:
+					evaluate_mesh_intermediate[evalAppend,0] = in_mesh[j,0]
+					evaluate_mesh_intermediate[evalAppend,1] = in_mesh[j,1]
+					evalAppend += 1
 		else:
-			basis_mesh[basisAppend,0] = in_mesh[i,0]
-			basis_mesh[basisAppend,1] = in_mesh[i,1]
+			basis_mesh[basisAppend,0] = in_mesh[j,0]
+			basis_mesh[basisAppend,1] = in_mesh[j,1]
 			basisAppend += 1
 	#print(evaluate_mesh)
+	evaluate_mesh = np.random.random((evalAppend,2))
+	for j in range(0,evalAppend):
+		evaluate_mesh[j,0] = evaluate_mesh_intermediate[j,0]
+		evaluate_mesh[j,1] = evaluate_mesh_intermediate[j,1]
+
 	mesh_size = maxNN
-	plt.scatter(basis_mesh[:,0], basis_mesh[:,1], label = "In Mesh")
+	plt.scatter(basis_mesh[:,0], basis_mesh[:,1], label = "In Mesh", s=2)
 	plt.scatter(evaluate_mesh[:,0], evaluate_mesh[:,1], label = "Out Mesh")
 	plt.show()
 	func = lambda x,y: np.sin(10*x)+(0.0000001*y)
@@ -66,7 +85,7 @@ for i in range(0,5):
 	LOOCVLowestPosition = 0
 	DoubleMeshLowestValue = 100
 	DoubleMeshLowestPosition = 0
-	for k in range(1,10):
+	for k in range(3,15):
 		shape_parameter = 4.55228/((k)*mesh_size)
 		#print("shape_parameter: ",shape_parameter)
 		bf = basisfunctions.Gaussian(shape_parameter)
@@ -81,11 +100,13 @@ for i in range(0,5):
 		
 		evaluate_vals = func(evaluate_mesh[:,0],evaluate_mesh[:,1])
 		basis_vals = func(basis_mesh[:,0],basis_mesh[:,1])
-	
+		if (i == 0):
+			error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+			errorsLOOCV = error_LOOCV() 
+			interpFull = NoneConsistent(bf, in_mesh, in_vals, rescale = False)	
+		
 		interp = NoneConsistent(bf, basis_mesh, basis_vals, rescale = False)	
-		error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
-		errorsLOOCV = error_LOOCV() 
-		interpFull = NoneConsistent(bf, in_mesh, in_vals, rescale = False)	
+		
 		#print("Error: ", max(evaluate_vals - interp(evaluate_mesh)))
 	
 		#resc_interp = NoneConsistent(bf, in_mesh, in_vals, rescale = True)

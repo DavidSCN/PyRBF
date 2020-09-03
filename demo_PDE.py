@@ -15,14 +15,14 @@ from scipy import spatial
 from halton import *
 
 
-nPoints = 1000
-nPointsOut = 100
+nPoints = 10000
+nPointsOut = 400
 
 haltonPoints = halton_sequence(nPoints, 2)
 print("Halton: ",haltonPoints[0][4])
 
 
-x = np.linspace(0,1,10)
+x = np.linspace(0,1,20)
 out_vals = []
 print("Number of points on input mesh: ",nPoints)
 print("Number of points on output mesh: ",nPointsOut)
@@ -38,20 +38,21 @@ for i in range(0,nPoints):
 	in_mesh[i,0] = haltonPoints[0][i]
 	in_mesh[i,1] = haltonPoints[1][i]
 
+for i in range(0,nPoints):
+	for j in range(0,9):
+		if in_mesh[i,0] < 0.5:
+			in_mesh[i,0] = 0.05*(0.25 - in_mesh[i,0]) + in_mesh[i,0]
+		if in_mesh[i,0] > 0.5:
+			in_mesh[i,0] = 0.05*(0.75 - in_mesh[i,0]) + in_mesh[i,0]
+
+
 func = lambda x,y: np.sin(2*x)+(0.0000001*y)
 in_vals = func(in_mesh[:,0],in_mesh[:,1])
 
-#fig = plt.figure()
-#ax = Axes3D(fig)
-#surf = ax.plot_trisurf(in_mesh[:,0], in_mesh[:,1], in_vals, cmap=cm.jet, linewidth=0.1)
-#fig.colorbar(surf, shrink=0.5, aspect=5)
-#plt.show()
-
-
-for i in range(0,10):
-	for j in range(0,10):
-		out_mesh[j + i*10,1] = x[j]
-		out_mesh[j + i*10,0] = x[i]
+for i in range(0,20):
+	for j in range(0,20):
+		out_mesh[j + i*20,1] = x[j]
+		out_mesh[j + i*20,0] = x[i]
 		out_vals.append(0)
 
 treeOut = spatial.KDTree(list(zip(out_mesh[:,0],out_mesh[:,1])))
@@ -62,7 +63,8 @@ plt.show()
 
 start = time.time()
 
-nnAmount = 10
+nnAmount = 5
+s = 4.55228 / (0.2)
 
 for j in range(0,nPoints):
 	queryPt = (in_mesh[j,0],in_mesh[j,1])
@@ -70,7 +72,8 @@ for j in range(0,nPoints):
 	#print(nnArray)
 	for k in range(0,nnAmount):
 		#print(nnArray[1][k])
-		out_vals[nnArray[1][k]] += 1 - min(nnArray[0][k]*10,1)	
+		#out_vals[nnArray[1][k]] += 1 - min(nnArray[0][k]*10,1)	
+		out_vals[nnArray[1][k]] += np.exp( -np.power(s*np.abs(nnArray[0][k]), 2))
 
 #for i in range(0,nPoints):
 #	for j in range(0,nPointsOut):
