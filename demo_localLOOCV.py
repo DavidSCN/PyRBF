@@ -14,76 +14,82 @@ from random import randint
 from scipy import spatial
 from halton import *
 import vtk
+import mesh_io
 
-'''
-def read_dataset(filename):
-	extension = os.path.splitext(filename)[1]
-	if (extension == ".vtk"): # VTK Legacy format
-		reader = vtk.vtkDataSetReader()
-	else:
-		raise MeshFormatError()
-	reader.SetFileName(filename)
-	reader.Update()
-	return reader.GetOutput()
+class Mesh:
+	"""
+	A Mesh consists of:
+		- Points: A list of tuples of floats representing coordinates of points
+		- Cells: A list of tuples of ints representing mesh elements
+		- Pointdata: A list of floats representing data values at the respective point
+	"""
+	def __init__(self, points = None, cells = None, cell_types = None, pointdata = None):
+		if points is not None:
+			self.points = points
+		else:
+			self.points = []
+		if cells is not None:
+			assert(cell_types is not None)
+			self.cells = cells
+			self.cell_types = cell_types
+		else:
+			self.cells = []
+			self.cell_types = []
+		if pointdata is not None:
+			self.pointdata = pointdata
+		else:
+			self.pointdata = []
 
+		def __str__(self):
+			return "Mesh with {} Points and {} Cells ({} Cell Types)".format(len(self.points), len(self.cells), len(self.cell_types))
 
+def read_mesh(filename):
+	points, cells, cell_types, pointdata = mesh_io.read_mesh(filename)
+	#print("Points: ", len(points))
+	#print("Point data: ", pointdata)
+	return Mesh(points, cells, cell_types, pointdata)
 
-vtkmesh = read_dataset('l1.vtk')
-points = []
-cells = []
-pointdata = []
-cell_types = []
-points = [vtkmesh.GetPoint(i) for i in range(vtkmesh.GetNumberOfPoints())]
-for i in range(vtkmesh.GetNumberOfCells()):
-    cell = vtkmesh.GetCell(i)
-    cell_type = cell.GetCellType()
-    if cell_type not in [vtk.VTK_LINE, vtk.VTK_TRIANGLE]:
-        continue
-    cell_types.append(cell_type)
-    entry = ()
-    for j in range(cell.GetNumberOfPoints()):
-        entry += (cell.GetPointId(j),)
-    cells.append(entry)
-if not tag:
-    # vtk Python utility method. Same as tag=="scalars"
-    fieldData = vtkmesh.GetPointData().GetScalars()
-else:
-    fieldData = vtkmesh.GetPointData().GetAbstractArray(tag)
-if fieldData:
-    for i in range(vtkmesh.GetNumberOfPoints()):
-        pointdata.append(fieldData.GetTuple1(i))
-
-print(pointdata)
-'''
+mesh_name = "Mesh/Plate/l1Data.vtk"
+mesh = read_mesh(mesh_name)
+print("Number of points: ", mesh.points)
 
 start = time.time()
 j = 0
-nPoints = 2000
-nPointsOut = 100
+nPoints = len(mesh.points)
+nPointsOut = 1
 print("Number of points: ",nPoints)
 in_mesh = np.random.random((nPoints,2))
 
-haltonPoints = halton_sequence(nPoints, 2)
+#haltonPoints = halton_sequence(nPoints, 2)
 for i in range(0,nPoints):
-	in_mesh[i,0] = haltonPoints[0][i]
-	in_mesh[i,1] = haltonPoints[1][i]
+	in_mesh[i,0] = mesh.points[i][0]
+	in_mesh[i,1] = mesh.points[i][1]
+	#in_mesh[i,0] = haltonPoints[0][i]
+	#in_mesh[i,1] = haltonPoints[1][i]
+
+	
 
 out_mesh = np.random.random((nPointsOut,2))
-for i in range(0,nPointsOut):
-	out_mesh[i,0] = haltonPoints[0][i] #+ 0.0001
-	out_mesh[i,1] = haltonPoints[1][i] #+ 0.01
+#for i in range(0,nPointsOut):
+#	out_mesh[i,0] = haltonPoints[0][i] #+ 0.0001
+#	out_mesh[i,1] = haltonPoints[1][i] #+ 0.01
+
+#in_mesh[0,0] = out_mesh[0,0]
+#in_mesh[0,1] = out_mesh[0,1]
 
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 shape_params = []
 
 plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh", s=2)
-plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh", s=2)
+#plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh", s=2)
 plt.show()
 
-for j in range(0,nPoints):
+
+'''
+for j in range(0,1):
 	queryPt = (in_mesh[j,0],in_mesh[j,1])
-	nnArray = tree.query(queryPt,2)
+	nnArray = tree.query(queryPt,50)
 	#print(nnArray[0][1])
 	nearest_neighbors.append(nnArray[0][1])
 	shape_params.append(0)
@@ -191,3 +197,5 @@ for i in range(0,5):
 	print("Random removal value: ", removalLowestValue, " - LOOCV value: ", LOOCVLowestValue, " - Double Mesh value: ", DoubleMeshLowestValue)
 end = time.time()
 print("Elapsed time for optimization: ", end - start)
+
+'''
