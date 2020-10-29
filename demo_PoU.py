@@ -54,7 +54,7 @@ def read_mesh(filename):
 #print("Points: ", mesh.points)
 
 dimension_M = 2			# dimension of problem
-nPoints = pow(25,2)
+nPoints = pow(15,2)
 #nPoints = len(mesh.points)	# number of points
 nPatches = nPoints / pow(2,dimension_M) # number of subdomains
 
@@ -90,7 +90,8 @@ print("y max: ", y_max)
 hyperVolume = (x_max-x_min)*(y_max-y_min)
 print("Hypervolume: ", hyperVolume)
 # Number of patches per dimension
-nPatchCentres = math.floor(0.5*(l_max - l_min)*pow(nPoints/(6*hyperVolume),1/dimension_M))
+hpParameter = 6		# Find value to automate parameter
+nPatchCentres = math.floor(0.5*(l_max - l_min)*pow(nPoints/(hpParameter*hyperVolume),1/dimension_M))
 #nPatchCentres = math.floor(pow(nPoints/2,1/dimension_M))
 print("n Patch Centres: ", nPatchCentres)
 #Radius of the patch (half the diameter)
@@ -100,13 +101,15 @@ print("n Patch Radii: ", patchRadii)
 puCentres = np.random.random((pow(nPatchCentres,dimension_M),2))
 j = 0
 k = 0
+
+patchOffset = 1/nPatchCentres
 for i in range(0,pow(nPatchCentres,dimension_M)):
 	if (j == nPatchCentres):
 		j = 0
 		k += 1
-	puCentres[i,0] = j*1.1*patchRadii + 0.1*patchRadii
-	puCentres[i,1] = k*1.1*patchRadii + 0.1*patchRadii
-	print("PU coords: ", puCentres[i,0], puCentres[i,1])
+	puCentres[i,0] = j*1.1*patchRadii + patchOffset*patchRadii
+	puCentres[i,1] = k*1.1*patchRadii + patchOffset*patchRadii
+	#print("PU coords: ", puCentres[i,0], puCentres[i,1])
 	j += 1
 
 # find q^M blocks
@@ -114,6 +117,7 @@ q = math.ceil((l_max - l_min)/patchRadii)
 print("q: ", q)
 
 ### Find the block where the PU domain centre lies in. Similar to linked cell method
+'''
 km = 0
 kthBlock = 0
 puKBlocks = []
@@ -129,8 +133,10 @@ for i in range(0,pow(nPatchCentres,2)):
 	#	kthBlock += q
 	print("kthBlock: ", kthBlock)
 	puKBlocks.append(kthBlock)
+'''
 	
 ### Repeat the method for all in_mesh points
+'''
 km = 0
 kthBlock = 0
 in_mesh_KBlocks = []
@@ -142,6 +148,26 @@ for i in range(0,nPoints):
 	kthBlock += math.ceil(in_mesh[i,dimension_M-1]/patchRadii)
 	in_mesh_KBlocks.append(kthBlock)
 print("in_mesh_KBlocks: ", in_mesh_KBlocks)
+'''
+km = 0
+kthBlock = 0
+puKBlocks = []
+for i in range(0,pow(nPatchCentres,dimension_M)):
+	km = 0
+	km = math.floor(puCentres[i,1]/patchRadii)*nPatchCentres
+	km += math.floor(puCentres[i,0]/patchRadii)
+	puKBlocks.append(km)
+print("puKBlocks: ", puKBlocks)
+
+km = 0
+kthBlock = 0
+in_mesh_KBlocks = []
+for i in range(0,nPoints):
+	km = 0
+	km = math.floor(in_mesh[i,1]/patchRadii)*nPatchCentres
+	km += math.floor(in_mesh[i,0]/patchRadii)
+	in_mesh_KBlocks.append(km)
+print("in_mesh_KBlocks: ", in_mesh_KBlocks)
 
 out_mesh = np.random.random((nPointsOut,2))
 #for i in range(0,nPointsOut):
@@ -150,6 +176,16 @@ out_mesh = np.random.random((nPointsOut,2))
 
 #in_mesh[0,0] = out_mesh[0,0]
 #in_mesh[0,1] = out_mesh[0,1]
+
+km = 0
+kthBlock = 0
+out_mesh_KBlocks = []
+for i in range(0,nPointsOut):
+	km = 0
+	km = math.floor(out_mesh[i,1]/patchRadii)*nPatchCentres
+	km += math.floor(out_mesh[i,0]/patchRadii)
+	out_mesh_KBlocks.append(km)
+print("out_mesh_KBlocks: ", out_mesh_KBlocks)
 
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
