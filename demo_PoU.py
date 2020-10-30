@@ -54,7 +54,7 @@ def read_mesh(filename):
 #print("Points: ", mesh.points)
 
 dimension_M = 2			# dimension of problem
-nPoints = pow(15,2)
+nPoints = pow(10,2)
 #nPoints = len(mesh.points)	# number of points
 nPatches = nPoints / pow(2,dimension_M) # number of subdomains
 
@@ -81,6 +81,9 @@ y_min = min(in_mesh[:,1])
 y_max = max(in_mesh[:,1])
 l_min = min(x_min,y_min)
 l_max = max(x_max,y_max)
+x_range = x_max - x_min
+y_range = y_max - y_min
+max_values = [x_max, y_max]
 
 print("x min: ", x_min)
 print("x max: ", x_max)
@@ -90,7 +93,7 @@ print("y max: ", y_max)
 hyperVolume = (x_max-x_min)*(y_max-y_min)
 print("Hypervolume: ", hyperVolume)
 # Number of patches per dimension
-hpParameter = 6		# Find value to automate parameter
+hpParameter = 1		# Find value to automate parameter
 nPatchCentres = math.floor(0.5*(l_max - l_min)*pow(nPoints/(hpParameter*hyperVolume),1/dimension_M))
 #nPatchCentres = math.floor(pow(nPoints/2,1/dimension_M))
 print("n Patch Centres: ", nPatchCentres)
@@ -149,6 +152,9 @@ for i in range(0,nPoints):
 	in_mesh_KBlocks.append(kthBlock)
 print("in_mesh_KBlocks: ", in_mesh_KBlocks)
 '''
+
+### Old method works fine. Add new linked cell algorithm from - Linked-List Cell Molecular Dynamics- 
+'''
 km = 0
 kthBlock = 0
 puKBlocks = []
@@ -168,6 +174,71 @@ for i in range(0,nPoints):
 	km += math.floor(in_mesh[i,0]/patchRadii)
 	in_mesh_KBlocks.append(km)
 print("in_mesh_KBlocks: ", in_mesh_KBlocks)
+'''
+
+#headPatches = -1*np.ones(pow(nPatchCentres,2))
+#print("headPatches: ", headPatches)
+#lsclPatches = -1*np.ones(nPoints)
+#print("lsclPatches: ", lsclPatches)
+headPatches = []
+lsclPatches = []
+for k in range(0,pow(nPatchCentres,dimension_M)):
+	headPatches.append(-1)
+for k in range(0,pow(nPatchCentres,dimension_M)):
+	lsclPatches.append(-1)
+
+print("headPatches: ", headPatches)
+
+for i in range(0,pow(nPatchCentres,dimension_M)):
+	mc = [0,0,0]
+	c = 0
+	for j in range(0,dimension_M):
+		mc[j] = math.floor(puCentres[i,j]/patchRadii)
+	c = mc[0]*pow(nPatchCentres,0) + mc[1]*nPatchCentres + mc[2]
+	print("c: ", c,mc[0], mc[1], mc[2])
+	lsclPatches[i] = headPatches[int(c)]
+	headPatches[int(c)] = i
+
+print("headPatches: ", headPatches)
+print("lsclPatches: ", lsclPatches)
+
+headInterpPoints = []
+lsclInterpPoints = []
+for k in range(0,pow(nPatchCentres,dimension_M)):
+	headInterpPoints.append(-1)
+for k in range(0,nPoints):
+	lsclInterpPoints.append(-1)
+
+print("headInterpPoints: ", headInterpPoints)
+
+regionWidth = patchRadii
+print("regionWidth: ", regionWidth)
+for i in range(0,nPoints):
+	mc = [0,0,0]
+	c = 0
+	for j in range(0,dimension_M):
+		mc[j] = math.floor(in_mesh[i,j]/regionWidth)
+		if in_mesh[i,j] == max_values[j]:
+			mc[j] -= 1
+	c = mc[0]*1 + mc[1]*nPatchCentres + mc[2]
+	print("c: ", c,mc[0], mc[1], mc[2])
+	lsclInterpPoints[i] = headInterpPoints[int(c)]
+	headInterpPoints[int(c)] = i
+
+print("headPatches: ", headInterpPoints)
+print("lsclPatches: ", lsclInterpPoints)
+
+### Find points in each cells using the arrays
+'''
+for i in range(0,pow(nPatchCentres,dimension_M)):
+	index = headInterpPoints[i]
+	indexLSCL = lsclInterpPoints[index]
+	while (indexLSCL > -1):
+		print("Value in cell: ", i, " - is: ", indexLSCL)
+		indexLSCL = lsclInterpPoints[indexLSCL]
+'''
+
+
 
 out_mesh = np.random.random((nPointsOut,2))
 #for i in range(0,nPointsOut):
