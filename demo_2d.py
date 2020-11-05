@@ -15,7 +15,7 @@ start = time.time()
 j = 0
 #nPointsRange = [1000,2000,4000,8000,10000,12000,16000]
 for i in range(0,1):
-	nPoints = 10000
+	nPoints = 1000
 	print("Number of points: ",nPoints)
 	#in_mesh = np.linspace((1,2),(10,20),nPoints)
 	in_mesh = np.random.random((nPoints,2))
@@ -30,13 +30,14 @@ for i in range(0,1):
 	bf = basisfunctions.Gaussian(shape_parameter)
 	#func = lambda x: (x-0.1)**2 + 1
 	func = lambda x,y: np.sin(10*x)+(0.0000001*y)
+        funcTan = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
 	one_func = lambda x: np.ones_like(x)
 	#in_meshChange = [0, 0.02, 0.03, 0.1,0.23,0.25,0.52,0.83,0.9,0.95,1]
 	#for j in range(0,11):
 	#	in_mesh[j] = in_meshChange[j]
 	#print(in_mesh)
 	plot_mesh = np.random.random((nPoints,2))
-	in_vals = func(in_mesh[:,0],in_mesh[:,1])
+	in_vals = funcTan(in_mesh[:,0],in_mesh[:,1])
 	#print(in_vals)
 #	evaluatine_vals = func(evaluate_mesh)
 #	basis_vals = func(basis_mesh)

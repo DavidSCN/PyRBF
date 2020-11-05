@@ -54,11 +54,9 @@ def read_mesh(filename):
 #print("Points: ", mesh.points)
 
 dimension_M = 2			# dimension of problem
-nPoints = pow(10,2)
+#nPoints = pow(90,2)
+nPoints = 40
 #nPoints = len(mesh.points)	# number of points
-nPatches = nPoints / pow(2,dimension_M) # number of subdomains
-
-print("n patches: ", nPatches)
 
 start = time.time()
 j = 0
@@ -93,9 +91,10 @@ print("y max: ", y_max)
 hyperVolume = (x_max-x_min)*(y_max-y_min)
 print("Hypervolume: ", hyperVolume)
 # Number of patches per dimension
-hpParameter = 1		# Find value to automate parameter
-nPatchCentres = math.floor(0.5*(l_max - l_min)*pow(nPoints/(hpParameter*hyperVolume),1/dimension_M))
-#nPatchCentres = math.floor(pow(nPoints/2,1/dimension_M))
+#hpParameter = 60		# Find value to automate parameter
+hpParameter = 0.5*nPoints/pow(nPoints,0.5)
+#nPatchCentres = math.floor(0.5*(l_max - l_min)*pow(nPoints/(hpParameter*hyperVolume),1/dimension_M))
+nPatchCentres = math.floor(1*pow(nPoints/2,1/dimension_M))
 print("n Patch Centres: ", nPatchCentres)
 #Radius of the patch (half the diameter)
 patchRadii = (l_max - l_min)/nPatchCentres	
@@ -110,8 +109,8 @@ for i in range(0,pow(nPatchCentres,dimension_M)):
 	if (j == nPatchCentres):
 		j = 0
 		k += 1
-	puCentres[i,0] = j*1.1*patchRadii + patchOffset*patchRadii
-	puCentres[i,1] = k*1.1*patchRadii + patchOffset*patchRadii
+	puCentres[i,0] = j*1.*patchRadii + patchOffset*patchRadii
+	puCentres[i,1] = k*1.*patchRadii + patchOffset*patchRadii
 	#print("PU coords: ", puCentres[i,0], puCentres[i,1])
 	j += 1
 
@@ -187,20 +186,22 @@ for k in range(0,pow(nPatchCentres,dimension_M)):
 for k in range(0,pow(nPatchCentres,dimension_M)):
 	lsclPatches.append(-1)
 
-print("headPatches: ", headPatches)
+#print("headPatches: ", headPatches)
 
 for i in range(0,pow(nPatchCentres,dimension_M)):
 	mc = [0,0,0]
 	c = 0
 	for j in range(0,dimension_M):
 		mc[j] = math.floor(puCentres[i,j]/patchRadii)
+		if puCentres[i,j] >= max_values[j]:
+			mc[j] -= 1
 	c = mc[0]*pow(nPatchCentres,0) + mc[1]*nPatchCentres + mc[2]
-	print("c: ", c,mc[0], mc[1], mc[2])
+	#print("c: ", c,mc[0], mc[1], mc[2])
 	lsclPatches[i] = headPatches[int(c)]
 	headPatches[int(c)] = i
 
-print("headPatches: ", headPatches)
-print("lsclPatches: ", lsclPatches)
+#print("headPatches: ", headPatches)
+#print("lsclPatches: ", lsclPatches)
 
 headInterpPoints = []
 lsclInterpPoints = []
@@ -209,24 +210,59 @@ for k in range(0,pow(nPatchCentres,dimension_M)):
 for k in range(0,nPoints):
 	lsclInterpPoints.append(-1)
 
-print("headInterpPoints: ", headInterpPoints)
+#print("headInterpPoints: ", headInterpPoints)
 
-regionWidth = patchRadii
+regionWidth = patchRadii + 0.001*patchRadii
 print("regionWidth: ", regionWidth)
 for i in range(0,nPoints):
 	mc = [0,0,0]
 	c = 0
 	for j in range(0,dimension_M):
 		mc[j] = math.floor(in_mesh[i,j]/regionWidth)
-		if in_mesh[i,j] == max_values[j]:
+		if in_mesh[i,j] >= max_values[j]:
 			mc[j] -= 1
 	c = mc[0]*1 + mc[1]*nPatchCentres + mc[2]
-	print("c: ", c,mc[0], mc[1], mc[2])
+	#print("c: ", c,mc[0], mc[1], mc[2])
 	lsclInterpPoints[i] = headInterpPoints[int(c)]
 	headInterpPoints[int(c)] = i
 
-print("headPatches: ", headInterpPoints)
-print("lsclPatches: ", lsclInterpPoints)
+#print("headInterpPoints: ", headInterpPoints)
+#print("lsclInterpPoints: ", lsclInterpPoints)
+
+# -------------------------------
+# 
+# Loop through all blocks defined by q. Loop through each vertex in blocks k-q-1, k-q, k-q+1,
+# k-1, k, k+1, k+q-1, k+q, k+q+1.
+#
+# -------------------------------
+
+surroundBlocks = [-q-1, -q, -q+1, -1, 0, 1, q-1, q, q+1]
+print("surroundBlocks: ",surroundBlocks)
+# Loop through each patch
+#for i in range(0,nPatchCentres):	# loops in x direction
+#	for j in range(0,nPatchCentres):	# loops in y direction
+#pointsInPatchWithinRadius = []
+for i in range(0,len(headPatches)):
+	pointsInPatchWithinRadius = []
+	xPatchCentre = puCentres[i,0]	
+	yPatchCentre = puCentres[i,1]
+	for k in range(0,9):
+		blockNum = surroundBlocks[k] + i
+		#print("Block num: ", blockNum)
+		if (blockNum >= 0):
+			if (blockNum < len(headPatches)):
+				vertexID = lsclInterpPoints[headInterpPoints[blockNum]]		
+				while (vertexID > 0):
+					#print("Vertex : ", vertexID)
+					x = in_mesh[vertexID,0]
+					y = in_mesh[vertexID,1] 
+					r = math.sqrt(pow(x-xPatchCentre,2) + pow(y-yPatchCentre,2))
+					if (r <= patchRadii*1):
+						pointsInPatchWithinRadius.append(vertexID)
+					vertexID = lsclInterpPoints[vertexID]
+	#print("pointsInPatchWithinRadius: ", pointsInPatchWithinRadius)
+
+
 
 ### Find points in each cells using the arrays
 '''
@@ -237,7 +273,8 @@ for i in range(0,pow(nPatchCentres,dimension_M)):
 		print("Value in cell: ", i, " - is: ", indexLSCL)
 		indexLSCL = lsclInterpPoints[indexLSCL]
 '''
-
+end = time.time()
+print("Elapsed time to allocate linked list data structures: ", end - start)
 
 
 out_mesh = np.random.random((nPointsOut,2))
@@ -248,6 +285,7 @@ out_mesh = np.random.random((nPointsOut,2))
 #in_mesh[0,0] = out_mesh[0,0]
 #in_mesh[0,1] = out_mesh[0,1]
 
+'''
 km = 0
 kthBlock = 0
 out_mesh_KBlocks = []
@@ -257,7 +295,7 @@ for i in range(0,nPointsOut):
 	km += math.floor(out_mesh[i,0]/patchRadii)
 	out_mesh_KBlocks.append(km)
 print("out_mesh_KBlocks: ", out_mesh_KBlocks)
-
+'''
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 shape_params = []
@@ -265,118 +303,3 @@ shape_params = []
 plt.scatter(puCentres[:,0], puCentres[:,1], label = "In Mesh", s=20)
 plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "Out Mesh", s=2)
 plt.show()
-
-
-'''
-for j in range(0,1):
-	queryPt = (in_mesh[j,0],in_mesh[j,1])
-	nnArray = tree.query(queryPt,50)
-	#print(nnArray[0][1])
-	nearest_neighbors.append(nnArray[0][1])
-	shape_params.append(0)
-
-for i in range(0,5):
-	ntesting = 100 + i*0
-	#print("nearest_nighbors: ",nearest_neighbors)
-	maxNN = max(nearest_neighbors)
-	random_point_removal = [randint(0, nPoints) for p in range(0, ntesting)]
-	print(random_point_removal)
-	basis_mesh = np.random.random((nPoints,2))
-	evaluate_mesh_intermediate = np.random.random((ntesting,2))
-	#evaluate_mesh = []
-	evalAppend = 0
-	basisAppend = 0
-	for j in range(0,nPoints):
-		if j in random_point_removal:
-			if in_mesh[j,0] > 0.1 and in_mesh[j,0] < 0.9: 
-				if in_mesh[j,1] > 0.1 and in_mesh[j,1] < 0.9:
-					evaluate_mesh_intermediate[evalAppend,0] = in_mesh[j,0]
-					evaluate_mesh_intermediate[evalAppend,1] = in_mesh[j,1]
-					evalAppend += 1
-		else:
-			basis_mesh[basisAppend,0] = in_mesh[j,0]
-			basis_mesh[basisAppend,1] = in_mesh[j,1]
-			basisAppend += 1
-	#print(evaluate_mesh)
-	evaluate_mesh = np.random.random((evalAppend,2))
-	for j in range(0,evalAppend):
-		evaluate_mesh[j,0] = evaluate_mesh_intermediate[j,0]
-		evaluate_mesh[j,1] = evaluate_mesh_intermediate[j,1]
-
-	mesh_size = maxNN
-	plt.scatter(basis_mesh[:,0], basis_mesh[:,1], label = "In Mesh", s=2)
-	plt.scatter(evaluate_mesh[:,0], evaluate_mesh[:,1], label = "Out Mesh")
-	plt.show()
-	func = lambda x,y: np.sin(10*x)+(0.0000001*y)
-	one_func = lambda x: np.ones_like(x)
-	in_vals = func(in_mesh[:,0],in_mesh[:,1])
-	out_vals = func(out_mesh[:,0],out_mesh[:,1])
-	removalLowestValue = 100
-	LOOCVLowestValue = 100
-	removalLowestPosition = 0
-	LOOCVLowestPosition = 0
-	DoubleMeshLowestValue = 100
-	DoubleMeshLowestPosition = 0
-	for k in range(3,15):
-		shape_parameter = 4.55228/((k)*mesh_size)
-		#print("shape_parameter: ",shape_parameter)
-		bf = basisfunctions.Gaussian(shape_parameter)
-		#func = lambda x: (x-0.1)**2 + 1
-	
-		#in_meshChange = [0, 0.02, 0.03, 0.1,0.23,0.25,0.52,0.83,0.9,0.95,1]	
-	#for j in range(0,11):
-
-		#	in_mesh[j] = in_meshChange[j]
-		#print(in_mesh)
-		#plot_mesh = np.linspace(0, 1, 250)
-		
-		evaluate_vals = func(evaluate_mesh[:,0],evaluate_mesh[:,1])
-		basis_vals = func(basis_mesh[:,0],basis_mesh[:,1])
-		if (i == 0):
-			error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
-			errorsLOOCV = error_LOOCV() 
-			interpFull = NoneConsistent(bf, in_mesh, in_vals, rescale = False)	
-		
-		interp = NoneConsistent(bf, basis_mesh, basis_vals, rescale = False)	
-		
-		#print("Error: ", max(evaluate_vals - interp(evaluate_mesh)))
-	
-		#resc_interp = NoneConsistent(bf, in_mesh, in_vals, rescale = True)
-		#one_interp = NoneConsistent(bf, in_mesh, one_func(in_mesh), rescale = False)
-	
-		#plt.plot(plot_mesh, func(plot_mesh), label = "Target $f$")
-		#plt.plot(evaluate_mesh, interp(evaluate_mesh), "--", label = "Interpolant $S_f$")
-		#plt.plot(evaluate_mesh, evaluate_vals, "--", label = "Interpolant $S_r$ of $g(x) 	= 1$")
-		#plt.plot(evaluate_mesh, evaluate_vals - interp(evaluate_mesh), label = "Error on selected points")
-		errors = evaluate_vals - interp(evaluate_mesh)
-		errorsFull = out_vals - interpFull(out_mesh)
-		plt.plot(in_mesh, errorsFull, label = "Error on selected points")
-		plt.show()
-
-		#print("Testing error: ",errors)
-		print("Random removal - Average Testing error with k = ",k,": ", abs(np.average(errors)), " - Max Testing error: ", abs(max(errors)))
-		print("LOOCV - Average Error with k = ", k, ": ", abs(np.average(errorsLOOCV)), " - and max error: ", abs(max(errorsLOOCV)))
-		print("Double Mesh - Average Error with k = ", k, ": ", abs(np.average(errorsFull)), " - and max error: ", abs(max(errorsFull)))
-
-		if abs(np.average(errors)) < removalLowestValue:
-			removalLowestPosition = k
-			removalLowestValue = abs(np.average(errors))
-		if abs(np.average(errorsLOOCV)) < LOOCVLowestValue:
-			LOOCVLowestPosition = k
-			LOOCVLowestValue = abs(np.average(errorsLOOCV))
-		if abs(np.average(errorsFull)) < DoubleMeshLowestValue:
-			DoubleMeshLowestPosition = k
-			DoubleMeshLowestValue = abs(np.average(errorsFull))
-		
-
-	#plt.tight_layout()
-	#plt.plot(in_mesh, in_vals, label = "Rescaled Interpolant")
-
-	#rint("RMSE no rescale =", interp.RMSE(func, plot_mesh))
-	#print("RMSE rescaled   =", resc_interp.RMSE(func, plot_mesh))
-	print("Random removal place: ", removalLowestPosition, " - LOOCV place: ", LOOCVLowestPosition, " - Double Mesh place: ", DoubleMeshLowestPosition)
-	print("Random removal value: ", removalLowestValue, " - LOOCV value: ", LOOCVLowestValue, " - Double Mesh value: ", DoubleMeshLowestValue)
-end = time.time()
-print("Elapsed time for optimization: ", end - start)
-
-'''

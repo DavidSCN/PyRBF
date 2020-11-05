@@ -8,6 +8,8 @@ import scipy.spatial
 from scipy.linalg import lu
 from scipy.linalg import svd
 from sklearn.decomposition import TruncatedSVD
+import matplotlib.pylab as plt
+import scipy.sparse as sparse
 
 dimension = 1
 # func = functools.partial(lambda x: Gaussian(x-1, 1) + 2)
@@ -39,9 +41,9 @@ class RBF:
     def eval_BF(self, meshA, meshB):
         """ Evaluates single BF or list of BFs on the meshes. """
         if meshA.ndim == 1:
-                meshA = meshA[:, np.newaxis]
+            meshA = meshA[:, np.newaxis]
         if meshB.ndim == 1:
-                meshB = meshB[:, np.newaxis]
+            meshB = meshB[:, np.newaxis]
         dm = scipy.spatial.distance_matrix(meshA, meshB)
         
         if type(self.basisfunction) is list:
@@ -281,6 +283,64 @@ class LUDecomp(RBF):
     def __call__(self):
         p, l, u = lu(self.C)
         return p, l, u
+
+class Rational(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF(in_mesh, in_mesh)
+        self.Cinv = np.linalg.inv(self.C)
+        self.D = 0*self.C
+        self.Stemp = 0*self.C
+        plt.spy(self.C, markersize=1)
+        
+        self.rescaled = rescale
+
+    def __call__(self, in_vals, out_mesh):
+
+        A = self.eval_BF(out_mesh, self.in_mesh)
+        print("in vals: ", in_vals)
+
+        for i in range(0,len(in_vals)):
+            self.D[i][i] = in_vals[i]
+
+        #print("D: ", self.D)
+
+        sumF = 0
+        for i in range(0,len(in_vals)):
+            sumF += pow(in_vals[i],2)
+        K = 1.0/sumF
+        for i in range(0,len(in_vals)):
+            self.Stemp[i][i] = 1.0/(K*pow(in_vals[i],2) + 1)
+        #print("S: ", self.Stemp)
+        S = self.Stemp @ (K * self.D @ self.Cinv @ self.D + self.Cinv)
+
+        EigValues, EigVectors = np.linalg.eig(S)
+        
+        #print("Eigen Vectors: ", EigVectors)
+
+        minValue = EigValues[0]
+        minLoc = 0
+        for i in range(1,len(in_vals)):
+            if (EigValues[i] < minValue):
+                minValue = EigValues[i]
+                minLoc = i
+        #q = np.transpose(EigVectors[minLoc])
+        q = EigVectors[:,minLoc]
+        #for i in range(0,len(in_vals)):
+        #    p[i] = self.D[i][i] * q[i]
+        p = self.D @ q
+        #print("Q: ", q)
+        #print("P: ", p)
+
+        pAlpha = self.Cinv @ p 
+        qAlpha = self.Cinv @ q
+        #print("qAlpha: ", qAlpha)
+        #print("pAlpha: ", pAlpha)
+
+        fr = (A @ pAlpha)/(A @ qAlpha)
+
+        return fr
 
 class fullSVD(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
