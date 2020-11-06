@@ -292,14 +292,14 @@ class Rational(RBF):
         self.Cinv = np.linalg.inv(self.C)
         self.D = 0*self.C
         self.Stemp = 0*self.C
-        plt.spy(self.C, markersize=1)
+        #plt.spy(self.C, markersize=1)
         
         self.rescaled = rescale
 
     def __call__(self, in_vals, out_mesh):
 
         A = self.eval_BF(out_mesh, self.in_mesh)
-        print("in vals: ", in_vals)
+        #print("in vals: ", in_vals)
 
         for i in range(0,len(in_vals)):
             self.D[i][i] = in_vals[i]
@@ -315,7 +315,7 @@ class Rational(RBF):
         #print("S: ", self.Stemp)
         S = self.Stemp @ (K * self.D @ self.Cinv @ self.D + self.Cinv)
 
-        EigValues, EigVectors = np.linalg.eig(S)
+        EigValues, EigVectors = np.linalg.eigh(S)
         
         #print("Eigen Vectors: ", EigVectors)
 
