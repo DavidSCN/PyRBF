@@ -114,7 +114,7 @@ for i in range(0,outLenTotal):
 
 #mesh_size = 1/math.sqrt(nPoints)
 mesh_size = InedgeLengthX/inLenTotal
-shape_parameter = 4.55228/((4.0)*mesh_size)
+shape_parameter = 4.55228/((3.0)*mesh_size)
 print("shape_parameter: ", shape_parameter)
 bf = basisfunctions.Gaussian(shape_parameter)
 func = lambda x,y: 0.5*np.sin(0.2*x*y)+(0.0000001*y)
@@ -123,29 +123,30 @@ one_func = lambda x: np.ones_like(x)
 in_vals = func(in_mesh[:,0],in_mesh[:,1])
 out_vals = func(out_mesh[:,0],out_mesh[:,1])
 
-#start = time.time()
-#interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
-#end = time.time()
-#print("Time for inversion: ", end-start)	
-#start = time.time()
-#fr = interpRational(in_vals, out_mesh)
+start = time.time()
+interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
+end = time.time()
+print("Time for inversion: ", end-start)	
+start = time.time()
+fr = interpRational(in_vals, out_mesh)
 #fr = func(out_mesh[:,0],out_mesh[:,1])
-#end = time.time()
-#print("Time for eigen decomposition: ", end-start)
+end = time.time()
+print("Time for eigen decomposition: ", end-start)
 
 
 
-interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-fr_regular = interp(out_mesh)
-#fr_regular = func(out_mesh[:,0],out_mesh[:,1])
+#interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+#fr_regular = interp(out_mesh)
+fr_regular = func(out_mesh[:,0],out_mesh[:,1])
 
 #out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
 #print("out_vals: ", max(fr))
-#print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
-print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
-maxRegError = max(out_vals - fr_regular)
+print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
+print("max fr: ", max(out_vals - fr))
+#print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
+#maxRegError = max(out_vals - fr_regular)
 #print("max fr: ", max(out_vals - fr))
-print("max regular: ", maxRegError)
+#print("max regular: ", maxRegError)
 
 
 Xtotal = np.linspace(OutxMinLength, OutedgeLengthX + OutxMinLength, outLenTotal)
@@ -165,9 +166,11 @@ Z_split = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92)
 Z_regular = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_regular_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_rational = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_global = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_rational_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_rational_error_final = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_regular_error_global = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_error_global = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 #print(Z)
 k=0
 for i in range(0,inLenTotal):
@@ -180,8 +183,10 @@ for i in range(0,outLenTotal):
 		Z[i,j] = out_vals[k]
 		Z_combined[i,j] = out_vals[k]
 		Z_split[i,j] = 0
-		Z_rational[i,j] = fr_regular[k]
-		Z_rational_error[i,j] = out_vals[k]- fr_regular[k]
+		Z_rational[i,j] = fr[k]
+		Z_rational_global[i,j] = fr[k]
+		Z_rational_error[i,j] = out_vals[k]- fr[k]
+		Z_rational_error_global[i,j] = out_vals[k] - fr[k]
 		Z_regular[i,j] = fr_regular[k]
 		Z_regular_error[i,j] = out_vals[k] - fr_regular[k]
 		Z_regular_error_global[i,j] = out_vals[k]- fr_regular[k]
@@ -219,14 +224,14 @@ ax = fig.gca(projection='3d')
 ax.set_title('Regular - error')
 ax.plot_surface(Xtotal, Ytotal, Z_regular_error,cmap='viridis',linewidth=0)
 plt.show()
-
+'''
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 ax.set_title('Rational - error')
 #ax.set_zlim(-0.001, 0.001)
 ax.plot_surface(Xtotal, Ytotal, Z_rational_error,cmap='viridis',linewidth=0)
 plt.show()
-'''
+
 
 #Z = in_vals
 # Plot the surface.
@@ -264,7 +269,7 @@ inLen = int(inLenTotal/domainDecomposition)
 outLen = int(outLenTotal/domainDecomposition)
 #inLen = 20
 #outLen = 30
-boundaryExtension = 20
+boundaryExtension = 4
 edgeLengthX = InedgeLengthX/domainDecomposition
 edgeLengthY = InedgeLengthY/domainDecomposition
 xMinLength = 0.0
@@ -284,18 +289,18 @@ for dd1 in range(0,domainDecomposition):
 		if (dd1 == 0):
 			shiftX = 0.0
 		elif (dd1 == 1):
-			shiftX = 0.5
+			shiftX = 0.9
 		elif (dd1 == 2):
-			shiftX = 1.0
+			shiftX = 1.8
 		else:
 			shiftX = 1.5
 
 		if (dd2 == 0):
 			shiftY = 0.0
 		elif (dd2 == 1):
-			shiftY = 0.5
+			shiftY = 0.9
 		elif (dd2 == 2):
-			shiftY = 1.0
+			shiftY = 1.8
 		else:
 			shiftY = 1.5
 
@@ -375,7 +380,7 @@ for dd1 in range(0,domainDecomposition):
 		for i in range(0,outLen):
 			for j in range(0,outLen):
 				Z[i,j] = out_vals[k]
-				Z_split[i+(outLen*dd2),j+(outLen*dd1)] = fr_regular[k]
+				Z_split[i+(outLen*dd2),j+(outLen*dd1)] = fr[k]
 				Z_rational[i,j] = fr[k]
 				Z_rational_error[i,j] = out_vals[k]- fr[k]
 				Z_regular[i,j] = fr_regular[k]
@@ -424,25 +429,41 @@ plt.show()
 '''
 Z_split_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_error_diff = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_diff = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+max_global_rational_error = []
 for i in range(0,outLenTotal):
 	for j in range(0,outLenTotal):
 		Z_split_error[i,j] = Z_combined[i,j] - Z_split[i,j]
+		Z_rational_diff[i,j] = Z_rational_global[i,j] - Z_split[i,j]
 		#if (Z_split_error[i,j] > 0.004):
 		#	Z_split_error[i,j] = 0.004
 		#if (Z_split_error[i,j] < -0.004):
 		#	Z_split_error[i,j] = -0.004
-		Z_error_diff[i,j] = Z_regular_error_global[i,j] - Z_split_error[i,j]
+		Z_error_diff[i,j] = Z_rational_error_global[i,j] - Z_split_error[i,j]
+		max_global_rational_error.append(Z_rational_error_global[i,j])
+
+print("Error of Global rational RBF: ", np.linalg.norm(Z_rational_error_global, 2))
+print("Error of Rational RBF sub-domains combined: ", np.linalg.norm(Z_split_error, 2))
+print("Max Global: ", max(max_global_rational_error))
+#print("Max Local: ", max(Z_split_error))
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_xlabel('Regular split mesh error')
+ax.set_title('Rational split mesh error when combined onto full grid')
 #ax.set_zlim(-0.00025, 0.00025)
 ax.plot_surface(Xtotal, Ytotal, Z_split_error,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_xlabel('Global vs local Regular RBF error difference')
+ax.set_title('Rational RBF Global - Local')
+#ax.set_zlim(-0.00025, 0.00025)
+ax.plot_surface(Xtotal, Ytotal, Z_rational_diff,cmap='viridis',linewidth=0,edgecolor='black')
+plt.show()
+
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+ax.set_title('Difference between the Global vs Local Rational RBF error magnitudes')
 #ax.set_zlim(-0.00025, 0.00025)
 ax.plot_surface(Xtotal, Ytotal, Z_error_diff,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
