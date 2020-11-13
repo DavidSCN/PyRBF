@@ -89,6 +89,11 @@ InxMinLength = 0.0
 InyMinLength = 0.0
 OutxMinLength = 0.0
 OutyMinLength = 0.0
+alpha = InedgeLengthX/inLenTotal
+
+domainXLenghtMin = 0.0
+domainXLenghtMax = 3.0
+domainLength = domainXLenghtMax - domainXLenghtMin
 #in_size = np.linspace(xMinLength, edgeLengthX + xMinLength, inLenTotal)
 #out_size = np.linspace(yMinLength, edgeLengthY + yMinLength, outLenTotal)
 in_mesh = np.random.random((pow(inLenTotal,2),2))
@@ -120,6 +125,8 @@ bf = basisfunctions.Gaussian(shape_parameter)
 func = lambda x,y: 0.5*np.sin(0.2*x*y)+(0.0000001*y)
 funcTan = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
 one_func = lambda x: np.ones_like(x)
+#rosenbrock_func = lambda x,y: pow(1-((x-0.5)*4),2) + (100*pow(((y-0.5)*4)-pow((x-0.5)*4,2),2))
+rosenbrock_func = lambda x,y: pow(1-x,2) + 100*pow(y-pow(x,2),2)
 in_vals = func(in_mesh[:,0],in_mesh[:,1])
 out_vals = func(out_mesh[:,0],out_mesh[:,1])
 
@@ -192,7 +199,7 @@ for i in range(0,outLenTotal):
 		Z_regular_error_global[i,j] = out_vals[k]- fr_regular[k]
 		k += 1
 
-'''
+
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 ax.set_title('In Grid')
@@ -201,11 +208,14 @@ plt.show()
 
 #save_plot(fileName='plot_01.py',obj=sys.argv[0],sel='plot',ctx=libscript.get_ctx(ctx_global=globals(),ctx_local=locals()))
 
+
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 ax.set_title('Actual - out Grid')
 ax.plot_surface(Xtotal, Ytotal, Z_combined,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
+
+'''
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
@@ -269,7 +279,7 @@ inLen = int(inLenTotal/domainDecomposition)
 outLen = int(outLenTotal/domainDecomposition)
 #inLen = 20
 #outLen = 30
-boundaryExtension = 4
+boundaryExtension = 10
 edgeLengthX = InedgeLengthX/domainDecomposition
 edgeLengthY = InedgeLengthY/domainDecomposition
 xMinLength = 0.0
@@ -288,21 +298,17 @@ for dd1 in range(0,domainDecomposition):
 	for dd2 in range(0,domainDecomposition):
 		if (dd1 == 0):
 			shiftX = 0.0
-		elif (dd1 == 1):
-			shiftX = 0.9
-		elif (dd1 == 2):
-			shiftX = 1.8
+		elif (dd1 == domainDecomposition-1):
+			shiftX = (dd1)*edgeLengthX - boundaryExtension*alpha
 		else:
-			shiftX = 1.5
+			shiftX = (dd1)*(edgeLengthX) - (boundaryExtension/2)*alpha
 
 		if (dd2 == 0):
 			shiftY = 0.0
-		elif (dd2 == 1):
-			shiftY = 0.9
-		elif (dd2 == 2):
-			shiftY = 1.8
+		elif (dd2 == domainDecomposition-1):
+			shiftY = (dd2)*edgeLengthX - boundaryExtension*alpha
 		else:
-			shiftY = 1.5
+			shiftY = (dd2)*(edgeLengthX) - (boundaryExtension/2)*alpha
 
 		xMinLength = 0.0 + shiftX
 		yMinLength = 0.0 + shiftY
@@ -345,6 +351,8 @@ for dd1 in range(0,domainDecomposition):
 		bf = basisfunctions.Gaussian(shape_parameter)
 		func = lambda x,y: 0.5*np.sin(0.2*x*y)+(0.0000001*y)
 		funcTan = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
+		#rosenbrock_func = lambda x,y: pow(1-((x-0.5)*4),2) + (100*pow(((y-0.5)*4)-pow((x-0.5)*4,2),2)) 
+		rosenbrock_func = lambda x,y: pow(1-x,2) + (100*pow(y-pow(x,2),2)) 
 		one_func = lambda x: np.ones_like(x)
 		in_vals = func(in_mesh[:,0],in_mesh[:,1])
 		out_vals = func(out_mesh[:,0],out_mesh[:,1])
