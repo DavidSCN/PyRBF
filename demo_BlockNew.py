@@ -19,6 +19,17 @@ import vtk
 import mesh_io
 #from mpi4py import MPI
 
+'''
+############################################################
+IMPORTANT!
+1. Eigenvalue decomposition does not work with 100x100 input matrix - too large for memory
+2. Difficult to run global input mesh with 100x100 
+
+
+############################################################
+
+'''
+
 class Mesh:
 	"""
 	A Mesh consists of:
@@ -90,16 +101,20 @@ Define the parameters of in and out meshes
 
 #inLenTotal = 60 #now xMesh	
 #outLenTotal = 45 # now yMesh
-xInMesh = 60
-yInMesh = 60
+xInMesh = 40
+yInMesh = 40
 
-xOutMesh = 90
-yOutMesh = 90
+print("Total number in input mesh vertices: ", xInMesh*yInMesh)
+
+xOutMesh = 320
+yOutMesh = 320
+
+print("Total number in output mesh vertices: ", xOutMesh*yOutMesh)
 
 xMin = 0.0
-xMax = 3.0
+xMax = 2.0
 yMin = 0.0
-yMax = 3.0
+yMax = 2.0
 
 TotalXLength = xMax - xMin
 TotalYLength = yMax - yMin
@@ -124,6 +139,25 @@ domainXLenghtMin = 0.0
 domainXLenghtMax = 3.0
 domainLength = domainXLenghtMax - domainXLenghtMin
 
+######################################################
+######################################################
+'''
+Define which problems to solve:
+
+Global - Regular
+Global - Rational
+Local - Regular
+Local - Rational
+'''
+
+regularGlobal = 1
+rationalGlobal = 0
+regularLocal = 1
+rationalLocal = 0
+
+######################################################
+######################################################
+
 
 ######################################################
 ######################################################
@@ -134,8 +168,8 @@ How many blocks in each direction to break problem into
 ######################################################
 
 # Domain decomposition. Grid mesh size/domainDecompo must be integer value
-xDomainDecomposition = 3
-yDomainDecomposition = 3
+xDomainDecomposition = 5
+yDomainDecomposition = 5
 
 xStep = TotalXLength/xDomainDecomposition
 yStep = TotalYLength/yDomainDecomposition
@@ -150,8 +184,9 @@ yGridStepOut = yOutMesh/yDomainDecomposition
 #outLen = int(outLenTotal/domainDecomposition)
 #inLen = 20
 #outLen = 30
-xBoundaryExtension = 20
-yBoundaryExtension = 20
+#### Even numbers only!!!!
+xBoundaryExtension = 10
+yBoundaryExtension = 10
 
 #edgeLengthX = InedgeLengthX/domainDecomposition
 #edgeLengthY = InedgeLengthY/domainDecomposition
@@ -187,6 +222,8 @@ for j in range(0,yInMesh):
 		in_mesh[i+j*xInMesh,0] = alphaInX*i 
 		in_mesh[i+j*xInMesh,1] = alphaInY*j
 
+#print("Original inmesh length: ", jj)
+
 for j in range(0,yOutMesh):
 	for i in range(0,xOutMesh):
 		#out_mesh[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
@@ -197,52 +234,82 @@ for j in range(0,yOutMesh):
 		out_mesh_Split[i+j*xOutMesh,0] = alphaOutX*i
 		out_mesh_Split[i+j*xOutMesh,1] = alphaOutY*j
 
-print("Original inmesh: ", in_mesh)
-print("Original outmesh: ", out_mesh)
-
-
-		#out_mesh[j+i*outLenTotal,1] = (OutedgeLengthY/outLenTotal)*i + OutyMinLength
-		#out_mesh_Combined[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
-		#out_mesh_Combined[j+i*outLenTotal,1] = (OutedgeLengthY/outLenTotal)*i + OutyMinLength
-		#out_mesh_Split[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
-		#out_mesh_Split[j+i*outLenTotal,1] = (OutedgeLengthY/outLenTotal)*i + OutyMinLength 
+#print("Original inmesh: ", in_mesh)
+#print("Original outmesh: ", out_mesh)
+#print("Original outmesh length: ", kk)
 
 
 #mesh_size = 1/math.sqrt(nPoints)
 mesh_size = alphaInX
-shape_parameter = 4.55228/((5.0)*mesh_size)
+shape_parameter = 4.55228/((4.0)*mesh_size)
 print("shape_parameter: ", shape_parameter)
 bf = basisfunctions.Gaussian(shape_parameter)
-func = lambda x,y: 0.5*np.sin(0.2*x*y)+(0.0000001*y)
-funcTan = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
-one_func = lambda x: np.ones_like(x)
-#rosenbrock_func = lambda x,y: pow(1-((x-0.5)*4),2) + (100*pow(((y-0.5)*4)-pow((x-0.5)*4,2),2))
-rosenbrock_func = lambda x,y: pow(1-x,2) + 100*pow(y-pow(x,2),2)
+
+##########################################################
+##########################################################
+'''
+Functions to test
+'''
+func = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
+
+## Complex sin function
+lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
+
+## Rosenbrock function
+lambda x,y: pow(1-x,2) + 100*pow(y-pow(x,2),2)
+
+## Arctan function (STEP FUNCTION) 
+lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
+
+## Unit values
+lambda x: np.ones_like(x)
+
+##########################################################
+##########################################################
+
 in_vals = func(in_mesh[:,0],in_mesh[:,1])
 out_vals = func(out_mesh[:,0],out_mesh[:,1])
+out_vals_global = func(out_mesh[:,0],out_mesh[:,1])
+out_vals_global_rational = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_global_regular = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_split_rational = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_split_regular = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_split_rational_error = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_split_regular_error = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_global_rational_error = 0*func(out_mesh[:,0],out_mesh[:,1])
+out_vals_global_regular_error = 0*func(out_mesh[:,0],out_mesh[:,1])
 
-start = time.time()
-interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
-end = time.time()
-print("Time for inversion: ", end-start)	
-start = time.time()
-fr = interpRational(in_vals, out_mesh)
-#fr = func(out_mesh[:,0],out_mesh[:,1])
-end = time.time()
-print("Time for eigen decomposition: ", end-start)
+if (rationalGlobal == 1):
+	start = time.time()
+	interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
+	end = time.time()
+	print("Time for Global rational inversion: ", end-start)	
+	start = time.time()
+	fr = interpRational(in_vals, out_mesh)
+	end = time.time()
+	print("Time for Global eigen decomposition: ", end-start)
+else:
+	print("Not running the Global Rational RBF")
+	fr = func(out_mesh[:,0],out_mesh[:,1])
 
-interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-fr_regular = interp(out_mesh)
-#fr_regular = func(out_mesh[:,0],out_mesh[:,1])
+if (regularGlobal == 1):
+	start = time.time()
+	interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+	fr_regular = interp(out_mesh)
+	end = time.time()
+	print("Time for Global regular solve: ", end-start)
+else:
+	print("Not running the Global Regular RBF")
+	fr_regular = func(out_mesh[:,0],out_mesh[:,1])
 
 #out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
 #print("out_vals: ", max(fr))
 #print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
 #print("max fr: ", max(out_vals - fr))
-print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
+#print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
 maxRegError = max(out_vals - fr_regular)
 #print("max fr: ", max(out_vals - fr))
-print("max regular: ", maxRegError)
+#print("max regular: ", maxRegError)
 globalRegularL2Error = np.linalg.norm(out_vals - fr_regular, 2)
 globalRationalL2Error = np.linalg.norm(out_vals - fr, 2)
 
@@ -259,16 +326,17 @@ X, Y = np.meshgrid(X, Y)
 Zin = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
 Z = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_combined = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_split = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_regular = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_regular_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_rational = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_rational_global = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_rational_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_rational_error_final = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_regular_error_global = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-Z_rational_error_global = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-#print(Z)
+Z_split = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_regular = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_regular_error = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_global = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_error = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_error_final = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_regular_error_global = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_error_global = 0*np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+
+
 k=0
 for j in range(0,yInMesh):
 	for i in range(0,xInMesh):
@@ -278,15 +346,18 @@ k=0
 for j in range(0,yOutMesh):
 	for i in range(0,xOutMesh):
 		Z[i,j] = out_vals[k]
-		Z_combined[i,j] = out_vals[k]
-		Z_split[i,j] = 0
-		Z_rational[i,j] = fr[k]
-		Z_rational_global[i,j] = fr[k]
-		Z_rational_error[i,j] = out_vals[k]- fr[k]
-		Z_rational_error_global[i,j] = out_vals[k] - fr[k]
-		Z_regular[i,j] = fr_regular[k]
-		Z_regular_error[i,j] = out_vals[k] - fr_regular[k]
-		Z_regular_error_global[i,j] = out_vals[k]- fr_regular[k]
+		#Z_combined[i,j] = out_vals[k]
+		out_vals_global_rational[k] = fr[k]
+		out_vals_global_regular[k] = fr_regular[k]
+		#out_vals_global_regular_error[k] = fr_regular[k] - out_vals[k]
+		#Z_split[i,j] = 0
+		#Z_rational[i,j] = fr[k]
+		#Z_rational_global[i,j] = fr[k]
+		#Z_rational_error[i,j] = out_vals[k]- fr[k]
+		#Z_rational_error_global[i,j] = out_vals[k] - fr[k]
+		#Z_regular[i,j] = fr_regular[k]
+		#Z_regular_error[i,j] = out_vals[k] - fr_regular[k]
+		#Z_regular_error_global[i,j] = out_vals[k]- fr_regular[k]
 		k += 1
 
 
@@ -302,7 +373,7 @@ plt.show()
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 ax.set_title('Actual - out Grid')
-ax.plot_surface(Xtotal, Ytotal, Z_combined,cmap='viridis',linewidth=0,edgecolor='black')
+ax.plot_surface(Xtotal, Ytotal, Z,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
 
 '''
@@ -367,6 +438,9 @@ plt.show()
 '''
 Begin local RBF
 '''
+print("#############################################")
+print("Beginning local RBF")
+print("#############################################")
 ######################################################
 ######################################################
 ######################################################
@@ -399,9 +473,9 @@ for dd2 in range(0,yDomainDecomposition):
 		xMinLengthOut = xMin + dd1*xStep
 		yMinLengthOut = yMin + dd2*yStep
 
-		print("Properties: ",xMinLength,yMinLength,xMinLengthOut, yMinLengthOut,dd1,dd2)
-		print("Alpha X: ", alphaOutX, alphaOutY)
-		print("domain count: ",domainCount)
+		#print("Properties: ",xMinLength,yMinLength,xMinLengthOut, yMinLengthOut,dd1,dd2)
+		#print("Alpha X: ", alphaOutX, alphaOutY)
+		print("Local Domain Number: ",domainCount + 1)
 		domainCount += 1
 
 		if (dd1 == xDomainDecomposition-1):
@@ -426,74 +500,94 @@ for dd2 in range(0,yDomainDecomposition):
 		#print("out_size: ", out_size)
 		in_mesh = np.random.random((int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension),2))
 		out_mesh = np.random.random((int(xGridStepOut)*int(yGridStepOut),2))
+
+		print("Local domain input vertices: ", int(yGridStepIn+yBoundaryExtension)*int(xGridStepIn+xBoundaryExtension))
 		for j in range(0,int(yGridStepIn+yBoundaryExtension)):
 			for i in range(0,int(xGridStepIn+xBoundaryExtension)):
 				in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),0] = alphaInX*i + xMinLength
 				in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),1] = alphaInY*j + yMinLength
 				#if i == 0:
 				#print("in_mesh: ",in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),0])
-
+		print("Local domain output vertices: ", int(yGridStepOut)*int(xGridStepOut))
 		for j in range(0,int(yGridStepOut)):
 			for i in range(0,int(xGridStepOut)):
 				out_mesh[i+j*int(xGridStepOut),0] = alphaOutX*i + xMinLengthOut
 				out_mesh[i+j*int(xGridStepOut),1] = alphaOutY*j + yMinLengthOut
 				#if i == 0:
 				#	print("out_mesh: ",out_mesh[j+i*outLen,0])
+		#print(len(out_mesh))
 
 		#mesh_size = 1/math.sqrt(nPoints)
 		#mesh_size = edgeLengthX/inLen
 		#shape_parameter = 4.55228/((4.0)*mesh_size)
-		print("Min input mesh: ", in_mesh[0,0], in_mesh[0,1])
-		print("Max inout mesh: X", in_mesh[int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension)-1,0], " - and Y: ", in_mesh[int(yGridStepIn+yBoundaryExtension)*int(xGridStepIn+xBoundaryExtension)-1,1])
-		print("Min output mesh: ", out_mesh[0,0], out_mesh[0,1])
-		print("Max output mesh: ", out_mesh[int((xGridStepOut*yGridStepOut)-1),0], out_mesh[int((xGridStepOut*yGridStepOut)-1),1])
-		print("shape_parameter: ", shape_parameter)
-		bf = basisfunctions.Gaussian(shape_parameter)
-		func = lambda x,y: 0.5*np.sin(0.2*x*y)+(0.0000001*y)
-		funcTan = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
+		#print("Min input mesh: ", in_mesh[0,0], in_mesh[0,1])
+		#print("Max inout mesh: X", in_mesh[int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension)-1,0], " - and Y: ", in_mesh[int(yGridStepIn+yBoundaryExtension)*int(xGridStepIn+xBoundaryExtension)-1,1])
+		#print("Min output mesh: ", out_mesh[0,0], out_mesh[0,1])
+		#print("Max output mesh: ", out_mesh[int((xGridStepOut*yGridStepOut)-1),0], out_mesh[int((xGridStepOut*yGridStepOut)-1),1])
+		#print("shape_parameter: ", shape_parameter)
+		#bf = basisfunctions.Gaussian(shape_parameter)
+		#func = lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
+		#funcTan = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
 		#rosenbrock_func = lambda x,y: pow(1-((x-0.5)*4),2) + (100*pow(((y-0.5)*4)-pow((x-0.5)*4,2),2)) 
-		rosenbrock_func = lambda x,y: pow(1-x,2) + (100*pow(y-pow(x,2),2)) 
-		one_func = lambda x: np.ones_like(x)
+		#rosenbrock_func = lambda x,y: pow(1-x,2) + (100*pow(y-pow(x,2),2)) 
+		#one_func = lambda x: np.ones_like(x)
 		in_vals = func(in_mesh[:,0],in_mesh[:,1])
 		out_vals = func(out_mesh[:,0],out_mesh[:,1])
 		
-		interpRational = Rational(bf, in_mesh, in_vals, rescale = False)	
-		fr = interpRational(in_vals, out_mesh)
-		#fr = func(out_mesh[:,0],out_mesh[:,1])
+		if (rationalLocal == 1):
+			print("Using local Rational RBFs")
+			interpRational = Rational(bf, in_mesh, in_vals, rescale = False)	
+			fr = interpRational(in_vals, out_mesh)
+		else:
+			print("NOT Using local Rational RBFs")
+			fr = func(out_mesh[:,0],out_mesh[:,1])
 		
-		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-		fr_regular = interp(out_mesh)
-		#fr_regular = func(out_mesh[:,0],out_mesh[:,1])
+		if (regularLocal == 1):
+			print("Using local Regular RBFs")
+			interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+			fr_regular = interp(out_mesh)
+		else:	
+			print("NOT Using local Regular RBFs")	
+			fr_regular = func(out_mesh[:,0],out_mesh[:,1])
 
 		#out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
-		print("out_vals: ", max(fr))
-		print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
-		print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
+		#print("out_vals: ", max(fr))
+		#print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
+		#print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
 		maxRegError = max(out_vals - fr_regular)
-		print("max fr: ", max(out_vals - fr))
-		print("max regular: ", maxRegError)
+		#print("max fr: ", max(out_vals - fr))
+		#print("max regular: ", maxRegError)
 
 		
 		#print("Out mesh print: ", xMinLengthOut, yMinLengthOut, alphaOutX, alphaOutY, xGridStepOut, yGridStepOut)
+		X = 0
+		Y = 0
 		X = np.linspace(xMinLengthOut, xMinLengthOut + alphaOutX*xGridStepOut, int(xGridStepOut))
 		#print("Printing X: ", X)
 		Y = np.linspace(yMinLengthOut, yMinLengthOut + alphaOutY*yGridStepOut, int(yGridStepOut))
 
 		X, Y = np.meshgrid(X, Y)
 
-		Z = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
-		Z_regular = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
-		Z_regular_error = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
-		Z_rational = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
-		Z_rational_error = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
+		#Z = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
+		#Z_regular = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
+		#Z_regular_error = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
+		#Z_rational = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
+		#Z_rational_error = np.arctan(125*(pow(pow(X-1.5,2) + pow(Y-0.25,2),0.5) - 0.92))
 
 		k=0
-		print(len(fr))
+
+		#print(len(Z))
+		#print(len(fr))
+		#print(len(out_vals_split))
+
 		for j in range(0,int(yGridStepOut)):
 			for i in range(0,int(xGridStepOut)):
 				#Z[i,j] = out_vals[k]
-				#print(len(Z_rational))
-				Z_split[i+int(xGridStepOutSet*dd1),j+int(yGridStepOutSet*dd2)] = fr_regular[k]
+				#Z_split[i+int(xGridStepOutSet*dd1),j+int(yGridStepOutSet*dd2)] = fr[k]
+				w = int((i+(dd1*xGridStepOutSet)) + ((j+(dd2*yGridStepOutSet))*(xOutMesh)))
+				#print(w)
+				out_vals_split_rational[w] = fr[k]
+				out_vals_split_regular[w] = fr_regular[k]
 				#Z_rational[i,j] = fr[k]
 				#Z_rational_error[i,j] = out_vals[k]- fr[k]
 				#Z_regular[i,j] = fr_regular[k]
@@ -501,34 +595,51 @@ for dd2 in range(0,yDomainDecomposition):
 				k += 1
 			#print("j: ", j)
 
+		k = 0
+
+		for j in range(0,yOutMesh):
+			for i in range(0,xOutMesh):
+				Z_rational[i,j] = out_vals_split_rational[k]
+				Z_regular[i,j] = out_vals_split_regular[k]
+				k += 1
+		'''
 		fig = plt.figure()
 		ax = fig.gca(projection='3d')
 		ax.set_xlabel('x axis')
 		ax.set_ylabel('y axis')
-		ax.set_title('Split mesh')
-		ax.plot_surface(Xtotal, Ytotal, Z_split,cmap='viridis',linewidth=0,edgecolor='black')
+		ax.set_title('Split mesh - Rational')
+		ax.plot_surface(Xtotal, Ytotal, Z_rational,cmap='viridis',linewidth=0,edgecolor='black')
 		plt.show()
+
+		fig = plt.figure()
+		ax = fig.gca(projection='3d')
+		ax.set_xlabel('x axis')
+		ax.set_ylabel('y axis')
+		ax.set_title('Split mesh - Regular')
+		ax.plot_surface(Xtotal, Ytotal, Z_regular,cmap='viridis',linewidth=0,edgecolor='black')
+		plt.show()
+		'''
 
 end = time.time()
 print("Time for decomposed problem eigen decomposition: ", end-start)
 
+#fig = plt.figure()
+#ax = fig.gca(projection='3d')
+#ax.set_xlabel('Regular')
+#ax.plot_surface(Xtotal, Ytotal, Z_split,cmap='viridis',linewidth=0,edgecolor='black')
+#plt.show()
+
+
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_xlabel('Regular')
-ax.plot_surface(Xtotal, Ytotal, Z_split,cmap='viridis',linewidth=0,edgecolor='black')
+ax.set_title('Regular')
+ax.plot_surface(Xtotal, Ytotal, Z_regular,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
 
-
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_xlabel('Regular')
-ax.plot_surface(X, Y, Z_regular,cmap='viridis',linewidth=0,edgecolor='black')
-plt.show()
-
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-ax.set_xlabel('Rational')
-ax.plot_surface(X, Y, Z_rational,cmap='viridis',linewidth=0)
+ax.set_title('Rational')
+ax.plot_surface(Xtotal, Ytotal, Z_rational,cmap='viridis',linewidth=0)
 plt.show()
 '''
 fig = plt.figure()
@@ -545,43 +656,67 @@ plt.show()
 '''
 Z_split_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_error_diff = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_rational_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+Z_regular_error = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
 Z_rational_diff = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
-max_global_rational_error = []
+Z_regular_diff = np.arctan(125*(pow(pow(Xtotal-1.5,2) + pow(Ytotal-0.25,2),0.5) - 0.92))
+global_local_rational_difference = []
+global_local_regular_difference = []
+
+k = 0
 for j in range(0,yOutMesh):
 	for i in range(0,xOutMesh):
-		Z_split_error[i,j] = Z_combined[i,j] - Z_split[i,j]
-		Z_rational_diff[i,j] = Z_rational_global[i,j] - Z_split[i,j]
-		#if (Z_split_error[i,j] > 0.004):
-		#	Z_split_error[i,j] = 0.004
-		#if (Z_split_error[i,j] < -0.004):
-		#	Z_split_error[i,j] = -0.004
-		Z_error_diff[i,j] = Z_rational_error_global[i,j] - Z_split_error[i,j]
-		max_global_rational_error.append(Z_rational_error_global[i,j])
+		#Z_split_error[i,j] = Z_combined[i,j] - Z_split[i,j]
+		#Z_rational_diff[i,j] = Z_rational_global[i,j] - Z_split[i,j]
+		#Z_error_diff[i,j] = Z_rational_error_global[i,j] - Z_split_error[i,j]
+		out_vals_split_rational_error[k] = out_vals_split_rational[k] - out_vals_global[k]
+		out_vals_split_regular_error[k] = out_vals_split_regular[k] - out_vals_global[k]
+		out_vals_global_rational_error[k] = out_vals_global_rational[k] - out_vals_global[k]
+		out_vals_global_regular_error[k] = out_vals_global_regular[k] - out_vals_global[k]
+		global_local_rational_difference.append(out_vals_split_rational[k] - out_vals_global_rational[k])
+		global_local_regular_difference.append(out_vals_split_regular[k] - out_vals_global_regular[k])
+		Z_rational_error[i,j] =  out_vals_split_rational_error[k]
+		Z_regular_error[i,j] =  out_vals_split_regular_error[k]
+		Z_rational_diff[i,j] =  out_vals_split_rational[k] - out_vals_global_rational[k]
+		Z_regular_diff[i,j] =  out_vals_split_regular[k] - out_vals_global_regular[k] 
+		k += 1 
 
-print("Error of Global rational RBF: ", np.linalg.norm(Z_rational_error_global, 2))
-print("Error of Rational RBF sub-domains combined: ", np.linalg.norm(Z_split_error, 2))
-print("Max Global: ", max(max_global_rational_error))
-#print("Max Local: ", max(Z_split_error))
+print("Error of Global Rational RBF: ", np.linalg.norm(out_vals_global_rational_error, 2))
+print("Error of Local Rational RBF sub-domains: ", np.linalg.norm(out_vals_split_rational_error, 2))
+print("Max Global Rational RBF Error: ", max(abs(out_vals_global_rational_error)))
+print("Max Local Rational RBF Error: ", max(abs(out_vals_split_rational_error)))
+
+print("Error of Global Regular RBF: ", np.linalg.norm(out_vals_global_regular_error, 2))
+print("Error of Local Regular RBF sub-domains: ", np.linalg.norm(out_vals_split_regular_error, 2))
+print("Max Global Regular RBF Error: ", max(abs(out_vals_global_regular_error)))
+print("Max Local Regular RBF Error: ", max(abs(out_vals_split_regular_error)))
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_title('Rational split mesh error when combined onto full grid')
+ax.set_title('Rational RBF Local - Error')
 #ax.set_zlim(-0.00025, 0.00025)
-ax.plot_surface(Xtotal, Ytotal, Z_split_error,cmap='viridis',linewidth=0,edgecolor='black')
+ax.plot_surface(Xtotal, Ytotal, Z_rational_error,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_title('Rational RBF Global - Local')
+ax.set_title('Regular RBF Local - Error')
+#ax.set_zlim(-0.00025, 0.00025)
+ax.plot_surface(Xtotal, Ytotal, Z_regular_error,cmap='viridis',linewidth=0,edgecolor='black')
+plt.show()
+
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+ax.set_title('Rational RBF Local - Global Difference')
 #ax.set_zlim(-0.00025, 0.00025)
 ax.plot_surface(Xtotal, Ytotal, Z_rational_diff,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
-ax.set_title('Difference between the Global vs Local Rational RBF error magnitudes')
+ax.set_title('Regular RBF Local - Global Difference')
 #ax.set_zlim(-0.00025, 0.00025)
-ax.plot_surface(Xtotal, Ytotal, Z_error_diff,cmap='viridis',linewidth=0,edgecolor='black')
+ax.plot_surface(Xtotal, Ytotal, Z_regular_diff,cmap='viridis',linewidth=0,edgecolor='black')
 plt.show()
 
 
