@@ -31,6 +31,10 @@ IMPORTANT!
 
 '''
 
+useHalton = 0
+useVTK = 1
+useStructuredGrid = 0
+
 class Mesh:
 	"""
 	A Mesh consists of:
@@ -81,20 +85,54 @@ def read_mesh(filename):
 #plt.show()
 
 
-input_mesh_name = "Mesh/Plate/l1Data.vtk"
-input_mesh = read_mesh(input_mesh_name)
-print("Number of input points: ", len(input_mesh.points))
+if (useVTK == 1):
+	input_mesh_name = "Mesh/Plate/l1Data.vtk"
+	input_mesh = read_mesh(input_mesh_name)
+	print("Number of input points: ", len(input_mesh.points))
+	nPointsInput = len(input_mesh.points)
 
-output_mesh_name = "Mesh/Plate/l2Data.vtk"
-output_mesh = read_mesh(output_mesh_name)
-print("Number of output points: ", len(output_mesh.points))
+	output_mesh_name = "Mesh/Plate/l2Data.vtk"
+	output_mesh = read_mesh(output_mesh_name)
+	print("Number of output points: ", len(output_mesh.points))
+	nPointsOutput = len(output_mesh.points)
+
+	in_mesh = np.random.random((len(input_mesh.points),2))
+	in_mesh_global = np.random.random((len(input_mesh.points),2))
+	out_mesh = np.random.random((len(output_mesh.points),2))
+	out_mesh_global = np.random.random((len(output_mesh.points),2))
+	out_mesh_Combined = np.random.random((len(output_mesh.points),2))
+	out_mesh_Split = np.random.random((len(output_mesh.points),2))
+
+
+if (useHalton == 1):
+	nPointsInput = 4000
+	nPointsOutput = 10000
+	in_mesh = np.random.random((nPointsInput,2))
+	in_mesh_global = np.random.random((nPointsInput,2))
+	out_mesh = np.random.random((nPointsOutput,2))
+	out_mesh_global = np.random.random((nPointsOutput,2))
+	out_mesh_Combined = np.random.random((nPointsOutput,2))
+	out_mesh_Split = np.random.random((nPointsOutput,2))
+
+	haltonPoints = halton_sequence(nPointsInput, 2)
+	for i in range(0,nPointsInput):
+		in_mesh[i,0] = haltonPoints[0][i]
+		in_mesh[i,1] = haltonPoints[1][i]
+		in_mesh_global[i,0] = haltonPoints[0][i]
+		in_mesh_global[i,1] = haltonPoints[1][i]
+
+	haltonPoints = halton_sequence(nPointsOutput, 2)
+	for i in range(0,nPointsOutput):
+		out_mesh[i,0] = haltonPoints[0][i]
+		out_mesh[i,1] = haltonPoints[1][i]
+		out_mesh_global[i,0] = haltonPoints[0][i]
+		out_mesh_global[i,1] = haltonPoints[1][i]
+		out_mesh_Combined[i,0] = haltonPoints[0][i]
+		out_mesh_Combined[i,1] = haltonPoints[1][i]
+		out_mesh_Split[i,0] = haltonPoints[0][i]
+		out_mesh_Split[i,1] = haltonPoints[1][i]
 
 start = time.time()
-j = 0
-#nPoints = len(mesh.points)
-nPoints = 100
-nPointsOut = 500
-#print("Number of points: ",nPoints)
 
 ######################################################
 ######################################################
@@ -116,10 +154,10 @@ yOutMesh = 90
 
 print("Total number in output mesh vertices: ", xOutMesh*yOutMesh)
 
-xMin = -0.5
-xMax = 0.5
-yMin = -0.5
-yMax = 0.5
+xMin = 0
+xMax = 1
+yMin = 0
+yMax = 1
 
 TotalXLength = xMax - xMin
 TotalYLength = yMax - yMin
@@ -157,8 +195,8 @@ Local - Rational
 
 regularGlobal = 1
 rationalGlobal = 1
-regularLocal = 1
-rationalLocal = 1
+regularLocal = 0
+rationalLocal = 0
 
 ######################################################
 ######################################################
@@ -190,8 +228,8 @@ yGridStepOut = yOutMesh/yDomainDecomposition
 #inLen = 20
 #outLen = 30
 #### Even numbers only!!!!
-xBoundaryExtension = 1
-yBoundaryExtension = 1
+xBoundaryExtension = 0.5
+yBoundaryExtension = 0.5
 
 #edgeLengthX = InedgeLengthX/domainDecomposition
 #edgeLengthY = InedgeLengthY/domainDecomposition
@@ -213,33 +251,29 @@ yOutMesh += 1
 
 #in_size = np.linspace(xMinLength, edgeLengthX + xMinLength, inLenTotal)
 #out_size = np.linspace(yMinLength, edgeLengthY + yMinLength, outLenTotal)
-in_mesh = np.random.random((len(input_mesh.points),2))
-in_mesh_global = np.random.random((len(input_mesh.points),2))
-out_mesh = np.random.random((len(output_mesh.points),2))
-out_mesh_global = np.random.random((len(output_mesh.points),2))
-out_mesh_Combined = np.random.random((len(output_mesh.points),2))
-out_mesh_Split = np.random.random((len(output_mesh.points),2))
+
 out_mesh_Combined_value = []
 out_mesh_Split_value = []
 
-for j in range(0,len(input_mesh.points)):
-	in_mesh[j,0] = input_mesh.points[j][0]
-	in_mesh[j,1] = input_mesh.points[j][1]
-	in_mesh_global[j,0] = input_mesh.points[j][0]
-	in_mesh_global[j,1] = input_mesh.points[j][1]
+if (useVTK == 1):
+	for j in range(0,len(input_mesh.points)):
+		in_mesh[j,0] = input_mesh.points[j][0] + 0.5
+		in_mesh[j,1] = input_mesh.points[j][1] + 0.5
+		in_mesh_global[j,0] = input_mesh.points[j][0] + 0.5
+		in_mesh_global[j,1] = input_mesh.points[j][1] + 0.5
 
-#print("Original inmesh length: ", jj)
+	#print("Original inmesh length: ", jj)
 
-for j in range(0,len(output_mesh.points)):
-	#out_mesh[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
-	out_mesh[j,0] = output_mesh.points[j][0]
-	out_mesh[j,1] = output_mesh.points[j][1]
-	out_mesh_global[j,0] = output_mesh.points[j][0]
-	out_mesh_global[j,1] = output_mesh.points[j][1]
-	out_mesh_Combined[j,0] = output_mesh.points[j][0]
-	out_mesh_Combined[j,1] = output_mesh.points[j][1]
-	out_mesh_Split[j,0] = output_mesh.points[j][0]
-	out_mesh_Split[j,1] = output_mesh.points[j][1]
+	for j in range(0,len(output_mesh.points)):
+		#out_mesh[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
+		out_mesh[j,0] = output_mesh.points[j][0] + 0.5
+		out_mesh[j,1] = output_mesh.points[j][1] + 0.5
+		out_mesh_global[j,0] = output_mesh.points[j][0] + 0.5
+		out_mesh_global[j,1] = output_mesh.points[j][1] + 0.5
+		out_mesh_Combined[j,0] = output_mesh.points[j][0] + 0.5
+		out_mesh_Combined[j,1] = output_mesh.points[j][1] + 0.5
+		out_mesh_Split[j,0] = output_mesh.points[j][0] + 0.5
+		out_mesh_Split[j,1] = output_mesh.points[j][1] + 0.5
 
 #print("Original inmesh: ", in_mesh)
 #print("Original outmesh: ", out_mesh)
@@ -247,8 +281,9 @@ for j in range(0,len(output_mesh.points)):
 
 
 #mesh_size = 1/math.sqrt(nPoints)
-mesh_size = 0.1
-shape_parameter = 4.55228/((5.0)*mesh_size)
+mesh_size = 0.15
+shape_parameter = 4.55228/((1.0)*mesh_size)
+print("mesh width: ", mesh_size)
 print("shape_parameter: ", shape_parameter)
 bf = basisfunctions.Gaussian(shape_parameter)
 
@@ -257,7 +292,7 @@ bf = basisfunctions.Gaussian(shape_parameter)
 '''
 Functions to test
 '''
-func = lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
+func = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
 
 ## Complex sin function
 lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
@@ -469,24 +504,24 @@ for dd2 in range(0,yDomainDecomposition):
 		yMinLengthOut = yMin + dd2*yStep
 		yMaxLengthOut = yMin + dd2*yStep + yStep
 
-		#print("Properties: ",xMinLength,yMinLength,xMinLengthOut, yMinLengthOut,dd1,dd2)
+		print("Properties: ",xMinLength,yMinLength,xMinLengthOut, yMinLengthOut,dd1,dd2)
+		print("Properties: ",xMaxLength,yMaxLength,xMaxLengthOut, yMaxLengthOut)
 		#print("Alpha X: ", alphaOutX, alphaOutY)
 		print("Local Domain Number: ",domainCount + 1)
 		domainCount += 1
 
+		if (dd1 == 0):
+			xMinLength -= 1.0
+			xMinLengthOut -= 1.0
+		if (dd2 == 0):
+			yMinLength -= 1.0
+			yMinLengthOut -= 1.0
 		if (dd1 == xDomainDecomposition-1):
-			xGridStepIn = xGridStepInSet + 1
-			xGridStepOut = xGridStepOutSet + 1
-		else:
-			xGridStepIn = xGridStepInSet + 1
-			xGridStepOut = xGridStepOutSet 
-
+			xMaxLength += 1.0
+			xMaxLengthOut += 1.0
 		if (dd2 == yDomainDecomposition-1):
-			yGridStepIn = yGridStepInSet + 1
-			yGridStepOut = yGridStepOutSet + 1
-		else:
-			yGridStepIn = yGridStepInSet + 1
-			yGridStepOut = yGridStepOutSet 
+			yMaxLength += 1.0
+			yMaxLengthOut += 1.0
 
 		# To create boxes for mesh
 		# xMinLength is the point at lowest X position, alphaInX*int(xGridStepIn+xBoundaryExtension) is the length of the block
@@ -518,7 +553,7 @@ for dd2 in range(0,yDomainDecomposition):
 				#	print("out_mesh: ",out_mesh[j+i*outLen,0])
 		#print(len(out_mesh))
 		inCount = 0
-		for i in range(0,len(input_mesh.points)):
+		for i in range(0,nPointsInput):
 			if ((in_mesh_global[i,0] >= xMinLength) and (in_mesh_global[i,0] <= xMaxLength) and (in_mesh_global[i,1] >= yMinLength) and (in_mesh_global[i,1] <= yMaxLength)):
 				in_mesh_list.append(i)
 				inCount += 1
@@ -532,7 +567,7 @@ for dd2 in range(0,yDomainDecomposition):
 
 
 		outCount = 0
-		for i in range(0,len(output_mesh.points)):
+		for i in range(0,nPointsOutput):
 			if ((out_mesh_global[i,0] >= xMinLengthOut) and (out_mesh_global[i,0] <= xMaxLengthOut) and (out_mesh_global[i,1] >= yMinLengthOut) and (out_mesh_global[i,1] <= yMaxLengthOut)):
 				out_mesh_list.append(i)
 				outCount += 1
@@ -570,7 +605,7 @@ for dd2 in range(0,yDomainDecomposition):
 		#print("out_vals: ", max(fr))
 		#print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
 		#print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
-		maxRegError = max(out_vals - fr_regular)
+		#maxRegError = max(out_vals - fr_regular)
 		#print("max fr: ", max(out_vals - fr))
 		#print("max regular: ", maxRegError)
 
@@ -642,7 +677,7 @@ global_local_rational_difference = []
 global_local_regular_difference = []
 
 k = 0
-for j in range(0,len(output_mesh.points)):
+for j in range(0,nPointsOutput):
 		#Z_split_error[i,j] = Z_combined[i,j] - Z_split[i,j]
 		#Z_rational_diff[i,j] = Z_rational_global[i,j] - Z_split[i,j]
 		#Z_error_diff[i,j] = Z_rational_error_global[i,j] - Z_split_error[i,j]
@@ -676,6 +711,23 @@ print("Max Local Regular RBF Error: ", max(abs(out_vals_split_regular_error)))
 #plt.show()
 
 triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
+
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1)
+
+ax.triplot(triang, c="#D3D3D3", marker='.', markerfacecolor="#DC143C",
+    markeredgecolor="black", markersize=10)
+
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+plt.show()
+
+#isBad = np.where((out_mesh_global[:,0] < xMin+0.01) | (out_mesh_global[:,0]>xMax-0.01) | (out_mesh_global[:,1]<yMin+0.01) | (out_mesh_global[:,1]>yMax-0.01), True, False)
+
+#mask = np.any(isBad[triang.triangles],axis=1)
+#triang.set_mask(mask)
+
+
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1, projection='3d')
 
@@ -686,6 +738,7 @@ ax.view_init(elev=60, azim=-45)
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
+ax.set_title('Out Mesh Values')
 plt.show()
 
 triang = mtri.Triangulation(in_mesh_global[:,0], in_mesh_global[:,1])
@@ -699,110 +752,120 @@ ax.view_init(elev=60, azim=-45)
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
+ax.set_title('In Mesh Values')
 plt.show()
 
 triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.plot_trisurf(triang, out_vals_global_regular, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
+if (regularGlobal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Regular RBF on Global Grid')
-plt.show()
+	ax.plot_trisurf(triang, out_vals_global_regular, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
 
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Regular RBF on Global Grid')
+	plt.show()
 
-ax.plot_trisurf(triang, out_vals_global_rational, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_rational, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
+if (rationalGlobal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Rational RBF on Global Grid')
-plt.show()
+	ax.plot_trisurf(triang, out_vals_global_rational, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_rational, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
 
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Rational RBF on Global Grid')
+	plt.show()
 
-ax.plot_trisurf(triang, out_vals_split_regular, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_regular, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
+if (regularLocal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
+	
+	ax.plot_trisurf(triang, out_vals_split_regular, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_regular, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Regular RBF on Local Grids')
-plt.show()
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Regular RBF on Local Grids')
+	plt.show()
 
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
+if (rationalLocal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.plot_trisurf(triang, out_vals_split_rational, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_rational, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
+	ax.plot_trisurf(triang, out_vals_split_rational, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_rational, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Rational RBF on Local Grids')
+	plt.show()
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Rational RBF on Local Grids')
-plt.show()
+if (regularLocal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
+	#(ax1, ax2) = plt.subplots(1, 2, projection='3d')
+	
+	ax.plot_trisurf(triang, out_vals_split_regular_error, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_regular_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Error - Regular RBF on Local Grids')
+	plt.show()
 
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
-#(ax1, ax2) = plt.subplots(1, 2, projection='3d')
+if (regularGlobal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.plot_trisurf(triang, out_vals_split_regular_error, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_regular_error, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
+	ax.plot_trisurf(triang, out_vals_global_regular_error, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Error - Regular RBF on Global Grid')
+	plt.show()
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Error - Regular RBF on Local Grids')
-plt.show()
+if (rationalLocal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
 
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
+	ax.plot_trisurf(triang, out_vals_split_rational_error, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_rational_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Error - Rational RBF on Local Grids')
+	plt.show()
 
-ax.plot_trisurf(triang, out_vals_global_regular_error, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular_error, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
+if (rationalGlobal == 1):
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Error - Regular RBF on Global Grid')
-plt.show()
-
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
-
-ax.plot_trisurf(triang, out_vals_split_rational_error, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_split_rational_error, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
-
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Error - Rational RBF on Local Grids')
-plt.show()
-
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1, projection='3d')
-
-ax.plot_trisurf(triang, out_vals_global_rational_error, cmap='jet')
-ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_rational_error, marker='.', s=10, c="black", alpha=0.5)
-ax.view_init(elev=60, azim=-45)
-
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Error - Rational RBF on Global Grid')
-plt.show()
+	ax.plot_trisurf(triang, out_vals_global_rational_error, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_rational_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Error - Rational RBF on Global Grid')
+	plt.show()
