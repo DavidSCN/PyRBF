@@ -82,7 +82,7 @@ def read_mesh(filename):
 
 mesh_name = "Mesh/Plate/l1Data.vtk"
 mesh = read_mesh(mesh_name)
-#print("Number of points: ", mesh.points)
+print("Number of points: ", len(mesh.points))
 
 start = time.time()
 j = 0
@@ -101,13 +101,13 @@ Define the parameters of in and out meshes
 
 #inLenTotal = 60 #now xMesh	
 #outLenTotal = 45 # now yMesh
-xInMesh = 90
-yInMesh = 90
+xInMesh = 60
+yInMesh = 60
 
 print("Total number in input mesh vertices: ", xInMesh*yInMesh)
 
-xOutMesh = 120
-yOutMesh = 120
+xOutMesh = 90
+yOutMesh = 90
 
 print("Total number in output mesh vertices: ", xOutMesh*yOutMesh)
 
@@ -151,9 +151,9 @@ Local - Rational
 '''
 
 regularGlobal = 1
-rationalGlobal = 0
+rationalGlobal = 1
 regularLocal = 1
-rationalLocal = 0
+rationalLocal = 1
 
 ######################################################
 ######################################################
@@ -209,7 +209,9 @@ yOutMesh += 1
 #in_size = np.linspace(xMinLength, edgeLengthX + xMinLength, inLenTotal)
 #out_size = np.linspace(yMinLength, edgeLengthY + yMinLength, outLenTotal)
 in_mesh = np.random.random(((xInMesh*yInMesh),2))
+in_mesh_global = np.random.random(((xInMesh*yInMesh),2))
 out_mesh = np.random.random((xOutMesh*yOutMesh,2))
+out_mesh_global = np.random.random((xOutMesh*yOutMesh,2))
 out_mesh_Combined = np.random.random((xOutMesh*yOutMesh,2))
 out_mesh_Split = np.random.random((xOutMesh*yOutMesh,2))
 out_mesh_Combined_value = []
@@ -221,6 +223,8 @@ for j in range(0,yInMesh):
 		#in_mesh[j+i*inLenTotal,1] = (InedgeLengthY/inLenTotal)*i
 		in_mesh[i+j*xInMesh,0] = alphaInX*i 
 		in_mesh[i+j*xInMesh,1] = alphaInY*j
+		in_mesh_global[i+j*xInMesh,0] = alphaInX*i 
+		in_mesh_global[i+j*xInMesh,1] = alphaInY*j
 
 #print("Original inmesh length: ", jj)
 
@@ -229,6 +233,8 @@ for j in range(0,yOutMesh):
 		#out_mesh[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
 		out_mesh[i+j*xOutMesh,0] = alphaOutX*i
 		out_mesh[i+j*xOutMesh,1] = alphaOutY*j
+		out_mesh_global[i+j*xOutMesh,0] = alphaOutX*i
+		out_mesh_global[i+j*xOutMesh,1] = alphaOutY*j
 		out_mesh_Combined[i+j*xOutMesh,0] = alphaOutX*i
 		out_mesh_Combined[i+j*xOutMesh,1] = alphaOutY*j
 		out_mesh_Split[i+j*xOutMesh,0] = alphaOutX*i
@@ -390,10 +396,10 @@ for j in range(0,yOutMesh):
 		#Z_rational[i,j] = fr[k]
 		#Z_rational_global[i,j] = fr[k]
 		#Z_rational_error[i,j] = out_vals[k]- fr[k]
-		#Z_rational_error_global[i,j] = out_vals[k] - fr[k]
+		Z_rational_error_global[i,j] = out_vals[k] - fr[k]
 		#Z_regular[i,j] = fr_regular[k]
 		#Z_regular_error[i,j] = out_vals[k] - fr_regular[k]
-		#Z_regular_error_global[i,j] = out_vals[k]- fr_regular[k]
+		Z_regular_error_global[i,j] = out_vals[k]- fr_regular[k]
 		k += 1
 
 
@@ -528,14 +534,19 @@ for dd2 in range(0,yDomainDecomposition):
 			yGridStepIn = yGridStepInSet + 1
 			yGridStepOut = yGridStepOutSet 
 
+		# To create boxes for mesh
+		# xMinLength is the point at lowest X position, alphaInX*int(xGridStepIn+xBoundaryExtension) is the length of the block
+
 
 		in_size = np.linspace(xMinLength, alphaInX*(xGridStepIn+xBoundaryExtension+1), int(xGridStepIn+xBoundaryExtension))
 		#print("in_size: ", in_size)
 		#in_size = np.linspace(xMinLength, edgeLengthX + xMinLength, inLen)
 		out_size = np.linspace(yMinLength, alphaInY*(yGridStepIn+yBoundaryExtension+1), int(yGridStepIn+yBoundaryExtension))
 		#print("out_size: ", out_size)
-		in_mesh = np.random.random((int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension),2))
-		out_mesh = np.random.random((int(xGridStepOut)*int(yGridStepOut),2))
+		#in_mesh = np.random.random((int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension),2))
+		#out_mesh = np.random.random((int(xGridStepOut)*int(yGridStepOut),2))
+		in_mesh_list = []
+		out_mesh_list = []
 
 		print("Local domain input vertices: ", int(yGridStepIn+yBoundaryExtension)*int(xGridStepIn+xBoundaryExtension))
 		for j in range(0,int(yGridStepIn+yBoundaryExtension)):
@@ -552,6 +563,32 @@ for dd2 in range(0,yDomainDecomposition):
 				#if i == 0:
 				#	print("out_mesh: ",out_mesh[j+i*outLen,0])
 		#print(len(out_mesh))
+		inCount = 0
+		for i in range(0,xInMesh*yInMesh):
+			if ((in_mesh_global[i,0] >= xMinLength) and (in_mesh_global[i,0] <= (xMinLength + alphaInX*int(xGridStepIn+xBoundaryExtension))) and (in_mesh_global[i,1] >= yMinLength) and (in_mesh_global[i,1] <= (yMinLength + alphaInY*int(yGridStepIn+yBoundaryExtension)))):
+				in_mesh_list.append(i)
+				inCount += 1
+
+
+		in_mesh = np.random.random((inCount,2))
+		for i in range(0,inCount):
+			in_mesh[i,0] = in_mesh_global[in_mesh_list[i],0]
+			in_mesh[i,1] = in_mesh_global[in_mesh_list[i],1]
+
+
+
+		outCount = 0
+		for i in range(0,xOutMesh*yOutMesh):
+			if ((out_mesh_global[i,0] >= xMinLengthOut) and (out_mesh_global[i,0] <= (xMinLengthOut + alphaInX*int(xGridStepOut))) and (out_mesh_global[i,1] >= yMinLengthOut) and (out_mesh_global[i,1] <= (yMinLengthOut + alphaInY*int(yGridStepOut)))):
+				out_mesh_list.append(i)
+				outCount += 1
+
+
+		out_mesh = np.random.random((outCount,2))
+		for i in range(0,outCount):
+			out_mesh[i,0] = out_mesh_global[out_mesh_list[i],0]
+			out_mesh[i,1] = out_mesh_global[out_mesh_list[i],1]
+			
 
 		#mesh_size = 1/math.sqrt(nPoints)
 		#mesh_size = edgeLengthX/inLen
@@ -643,19 +680,25 @@ for dd2 in range(0,yDomainDecomposition):
 		#print(len(fr))
 		#print(len(out_vals_split))
 
-		for j in range(0,int(yGridStepOut)):
-			for i in range(0,int(xGridStepOut)):
+		for i in range(0,outCount):
+			out_vals_split_rational[out_mesh_list[i]] =fr[k]
+			out_vals_split_regular[out_mesh_list[i]] = fr_regular[k]
+			k += 1
+			
+
+		#for j in range(0,int(yGridStepOut)):
+		#	for i in range(0,int(xGridStepOut)):
 				#Z[i,j] = out_vals[k]
 				#Z_split[i+int(xGridStepOutSet*dd1),j+int(yGridStepOutSet*dd2)] = fr[k]
-				w = int((i+(dd1*xGridStepOutSet)) + ((j+(dd2*yGridStepOutSet))*(xOutMesh)))
+				###w = int((i+(dd1*xGridStepOutSet)) + ((j+(dd2*yGridStepOutSet))*(xOutMesh)))
 				#print(w)
-				out_vals_split_rational[w] = fr[k]
-				out_vals_split_regular[w] = fr_regular[k]
+				###out_vals_split_rational[w] = fr[k]
+				###out_vals_split_regular[w] = fr_regular[k]
 				#Z_rational[i,j] = fr[k]
 				#Z_rational_error[i,j] = out_vals[k]- fr[k]
 				#Z_regular[i,j] = fr_regular[k]
 				#Z_regular_error[i,j] = out_vals[k]- fr_regular[k]
-				k += 1
+		#		k += 1
 			#print("j: ", j)
 
 		k = 0
@@ -753,6 +796,20 @@ print("Error of Global Regular RBF: ", np.linalg.norm(out_vals_global_regular_er
 print("Error of Local Regular RBF sub-domains: ", np.linalg.norm(out_vals_split_regular_error, 2))
 print("Max Global Regular RBF Error: ", max(abs(out_vals_global_regular_error)))
 print("Max Local Regular RBF Error: ", max(abs(out_vals_split_regular_error)))
+
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+ax.set_title('Rational RBF Global - Error')
+#ax.set_zlim(-0.00025, 0.00025)
+ax.plot_surface(Xtotal, Ytotal, Z_rational_error_global,cmap='viridis',linewidth=0,edgecolor='black')
+plt.show()
+
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+ax.set_title('Rational RBF Global - Error')
+#ax.set_zlim(-0.00025, 0.00025)
+ax.plot_surface(Xtotal, Ytotal, Z_regular_error_global,cmap='viridis',linewidth=0,edgecolor='black')
+plt.show()
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
