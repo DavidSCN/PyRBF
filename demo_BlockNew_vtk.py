@@ -18,7 +18,7 @@ from halton import *
 import vtk
 import matplotlib.tri as mtri
 import mesh_io
-#from mpi4py import MPI
+from mpi4py import MPI
 
 '''
 ############################################################
@@ -31,8 +31,18 @@ IMPORTANT!
 
 '''
 
-useHalton = 0
-useVTK = 1
+my_Rank = MPI.COMM_WORLD.rank
+comm = MPI.COMM_WORLD
+
+size = comm.Get_size()
+rank = comm.Get_rank()
+
+print("Size and rank: ", size, rank)
+
+useHaltonIn = 0
+useHaltonOut = 1
+useVTKIn = 1
+useVTKOut = 0
 useStructuredGrid = 0
 
 class Mesh:
@@ -85,35 +95,34 @@ def read_mesh(filename):
 #plt.show()
 
 
-if (useVTK == 1):
-	input_mesh_name = "Mesh/Plate/l1Data.vtk"
+if (useVTKIn == 1):
+	input_mesh_name = "Mesh/Plate/l2Data.vtk"
 	input_mesh = read_mesh(input_mesh_name)
 	print("Number of input points: ", len(input_mesh.points))
 	nPointsInput = len(input_mesh.points)
 
-	output_mesh_name = "Mesh/Plate/l2Data.vtk"
+	in_mesh = np.random.random((len(input_mesh.points),2))
+	in_mesh_local_LOOCV_error = np.random.random((len(input_mesh.points),2))
+	in_mesh_global = np.random.random((len(input_mesh.points),2))
+
+if (useVTKOut == 1):
+	output_mesh_name = "Mesh/Plate/l3Data.vtk"
 	output_mesh = read_mesh(output_mesh_name)
 	print("Number of output points: ", len(output_mesh.points))
 	nPointsOutput = len(output_mesh.points)
 
-	in_mesh = np.random.random((len(input_mesh.points),2))
-	in_mesh_global = np.random.random((len(input_mesh.points),2))
 	out_mesh = np.random.random((len(output_mesh.points),2))
 	out_mesh_global = np.random.random((len(output_mesh.points),2))
 	out_mesh_Combined = np.random.random((len(output_mesh.points),2))
 	out_mesh_Split = np.random.random((len(output_mesh.points),2))
 
 
-if (useHalton == 1):
-	nPointsInput = 4000
-	nPointsOutput = 10000
+if (useHaltonIn == 1):
+	nPointsInput = 20000
+	print("Number of Halton input points: ", nPointsInput)
 	in_mesh = np.random.random((nPointsInput,2))
+	in_mesh_local_LOOCV_error = np.random.random((nPointsInput,2))
 	in_mesh_global = np.random.random((nPointsInput,2))
-	out_mesh = np.random.random((nPointsOutput,2))
-	out_mesh_global = np.random.random((nPointsOutput,2))
-	out_mesh_Combined = np.random.random((nPointsOutput,2))
-	out_mesh_Split = np.random.random((nPointsOutput,2))
-
 	haltonPoints = halton_sequence(nPointsInput, 2)
 	for i in range(0,nPointsInput):
 		in_mesh[i,0] = haltonPoints[0][i]
@@ -121,6 +130,13 @@ if (useHalton == 1):
 		in_mesh_global[i,0] = haltonPoints[0][i]
 		in_mesh_global[i,1] = haltonPoints[1][i]
 
+if (useHaltonOut == 1):
+	nPointsOutput = 4000
+	print("Number of Halton output points: ", nPointsOutput)
+	out_mesh = np.random.random((nPointsOutput,2))
+	out_mesh_global = np.random.random((nPointsOutput,2))
+	out_mesh_Combined = np.random.random((nPointsOutput,2))
+	out_mesh_Split = np.random.random((nPointsOutput,2))
 	haltonPoints = halton_sequence(nPointsOutput, 2)
 	for i in range(0,nPointsOutput):
 		out_mesh[i,0] = haltonPoints[0][i]
@@ -194,8 +210,8 @@ Local - Rational
 '''
 
 regularGlobal = 1
-rationalGlobal = 1
-regularLocal = 0
+rationalGlobal = 0
+regularLocal = 1
 rationalLocal = 0
 
 ######################################################
@@ -211,8 +227,10 @@ How many blocks in each direction to break problem into
 ######################################################
 
 # Domain decomposition. Grid mesh size/domainDecompo must be integer value
-xDomainDecomposition = 2
-yDomainDecomposition = 2
+xDomainDecomposition = 3
+yDomainDecomposition = 3
+totalLocalDomains = xDomainDecomposition*yDomainDecomposition
+
 
 xStep = TotalXLength/xDomainDecomposition
 yStep = TotalYLength/yDomainDecomposition
@@ -228,8 +246,8 @@ yGridStepOut = yOutMesh/yDomainDecomposition
 #inLen = 20
 #outLen = 30
 #### Even numbers only!!!!
-xBoundaryExtension = 0.5
-yBoundaryExtension = 0.5
+xBoundaryExtension = 0.3
+yBoundaryExtension = 0.3
 
 #edgeLengthX = InedgeLengthX/domainDecomposition
 #edgeLengthY = InedgeLengthY/domainDecomposition
@@ -255,33 +273,36 @@ yOutMesh += 1
 out_mesh_Combined_value = []
 out_mesh_Split_value = []
 
-if (useVTK == 1):
+inputScaling = 1
+outputScaling = 1
+
+if (useVTKIn == 1):
 	for j in range(0,len(input_mesh.points)):
-		in_mesh[j,0] = input_mesh.points[j][0] + 0.5
-		in_mesh[j,1] = input_mesh.points[j][1] + 0.5
-		in_mesh_global[j,0] = input_mesh.points[j][0] + 0.5
-		in_mesh_global[j,1] = input_mesh.points[j][1] + 0.5
+		in_mesh[j,0] = pow(input_mesh.points[j][0] + 0.5,inputScaling)
+		in_mesh[j,1] = pow(input_mesh.points[j][1] + 0.5,inputScaling)
+		in_mesh_global[j,0] = pow(input_mesh.points[j][0] + 0.5,inputScaling)
+		in_mesh_global[j,1] = pow(input_mesh.points[j][1] + 0.5,inputScaling)
 
 	#print("Original inmesh length: ", jj)
-
+if (useVTKOut == 1):
 	for j in range(0,len(output_mesh.points)):
 		#out_mesh[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
-		out_mesh[j,0] = output_mesh.points[j][0] + 0.5
-		out_mesh[j,1] = output_mesh.points[j][1] + 0.5
-		out_mesh_global[j,0] = output_mesh.points[j][0] + 0.5
-		out_mesh_global[j,1] = output_mesh.points[j][1] + 0.5
-		out_mesh_Combined[j,0] = output_mesh.points[j][0] + 0.5
-		out_mesh_Combined[j,1] = output_mesh.points[j][1] + 0.5
-		out_mesh_Split[j,0] = output_mesh.points[j][0] + 0.5
-		out_mesh_Split[j,1] = output_mesh.points[j][1] + 0.5
+		out_mesh[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
+		out_mesh_global[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh_global[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
+		out_mesh_Combined[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh_Combined[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
+		out_mesh_Split[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh_Split[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
 
 #print("Original inmesh: ", in_mesh)
 #print("Original outmesh: ", out_mesh)
 #print("Original outmesh length: ", kk)
 
-
+ 
 #mesh_size = 1/math.sqrt(nPoints)
-mesh_size = 0.15
+mesh_size = 0.2
 shape_parameter = 4.55228/((1.0)*mesh_size)
 print("mesh width: ", mesh_size)
 print("shape_parameter: ", shape_parameter)
@@ -292,10 +313,13 @@ bf = basisfunctions.Gaussian(shape_parameter)
 '''
 Functions to test
 '''
-func = lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
+func = lambda x,y: 0.5*np.sin(10*x*y)+(0.0000001*y)
 
 ## Complex sin function
 lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
+
+## Complex fast sin function
+lambda x,y: 0.5*np.sin(10*x*y)+(0.0000001*y)
 
 ## Rosenbrock function
 lambda x,y: pow(1-x,2) + 100*pow(y-pow(x,2),2)
@@ -304,7 +328,7 @@ lambda x,y: pow(1-x,2) + 100*pow(y-pow(x,2),2)
 lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
 
 ## Unit values
-lambda x: np.ones_like(x)
+lambda x,y: np.ones_like(x)
 
 stepFunction = 0	# Apply step function values if = 1
 
@@ -313,6 +337,8 @@ stepFunction = 0	# Apply step function values if = 1
 
 in_vals = func(in_mesh[:,0],in_mesh[:,1])
 in_vals_global = func(in_mesh[:,0],in_mesh[:,1])
+in_vals_global_LOOCV_error = func(in_mesh[:,0],in_mesh[:,1])
+in_vals_local_LOOCV_error = func(in_mesh[:,0],in_mesh[:,1])
 out_vals = func(out_mesh[:,0],out_mesh[:,1])
 out_vals_global = func(out_mesh[:,0],out_mesh[:,1])
 
@@ -377,9 +403,13 @@ if (regularGlobal == 1):
 	fr_regular = interp(out_mesh)
 	end = time.time()
 	print("Time for Global regular solve: ", end-start)
+	start = time.time()
+	error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+	errorsLOOCV = error_LOOCV() 
 else:
 	print("Not running the Global Regular RBF")
 	fr_regular = func(out_mesh[:,0],out_mesh[:,1])
+	errorsLOOCV = func(in_mesh[:,0],in_mesh[:,1])
 
 #out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
 #print("out_vals: ", max(fr))
@@ -398,6 +428,10 @@ for k in range(0,len(fr)):
 		out_vals_global_rational[k] = fr[k]
 		out_vals_global_regular[k] = fr_regular[k]
 
+
+k=0
+for k in range(0,len(errorsLOOCV)):
+		in_vals_global_LOOCV_error[k] = errorsLOOCV[k]
 
 '''
 
@@ -477,177 +511,197 @@ start = time.time()
 domainCount= 0
 for dd2 in range(0,yDomainDecomposition):
 	for dd1 in range(0,xDomainDecomposition):
-		if (dd1 == 0):
-			shiftX = 0.0
-		elif (dd1 == xDomainDecomposition-1):
-			#shiftX = (dd1)*xStep - xBoundaryExtension*alphaInX
-			shiftX = (dd1)*xStep - xBoundaryExtension*xStep
+
+		skipLoop = int(totalLocalDomains/size)*rank + int(totalLocalDomains/size)
+		print(skipLoop,int(totalLocalDomains/size)*rank)
+
+		if ((domainCount > skipLoop) or (domainCount < (int(totalLocalDomains/size)*rank))):
+			print("Need to break on rank: ", rank)
 		else:
-			#shiftX = (dd1)*xStep- (xBoundaryExtension/2)*alphaInX
-			shiftX = (dd1)*xStep- (xBoundaryExtension/2)*xStep
 
-		if (dd2 == 0):
-			shiftY = 0.0
-		elif (dd2 == yDomainDecomposition-1):
-			#shiftY = (dd2)*yStep - yBoundaryExtension*alphaInY
-			shiftY = (dd2)*yStep - yBoundaryExtension*yStep
-		else:
-			#shiftY = (dd2)*yStep - (yBoundaryExtension/2)*alphaInY
-			shiftY = (dd2)*yStep - (yBoundaryExtension/2)*yStep
+			if (dd1 == 0):
+				shiftX = 0.0
+			elif (dd1 == xDomainDecomposition-1):
+				#shiftX = (dd1)*xStep - xBoundaryExtension*alphaInX
+				shiftX = (dd1)*xStep - xBoundaryExtension*xStep
+			else:
+				#shiftX = (dd1)*xStep- (xBoundaryExtension/2)*alphaInX
+				shiftX = (dd1)*xStep- (xBoundaryExtension/2)*xStep
 
-		xMinLength = xMin + shiftX
-		xMaxLength = xMin + shiftX + (1+xBoundaryExtension)*xStep
-		yMinLength = yMin + shiftY
-		yMaxLength = yMin + shiftY + (1+xBoundaryExtension)*yStep
-		xMinLengthOut = xMin + dd1*xStep
-		xMaxLengthOut = xMin + dd1*xStep + xStep
-		yMinLengthOut = yMin + dd2*yStep
-		yMaxLengthOut = yMin + dd2*yStep + yStep
+			if (dd2 == 0):
+				shiftY = 0.0
+			elif (dd2 == yDomainDecomposition-1):
+				#shiftY = (dd2)*yStep - yBoundaryExtension*alphaInY
+				shiftY = (dd2)*yStep - yBoundaryExtension*yStep
+			else:
+				#shiftY = (dd2)*yStep - (yBoundaryExtension/2)*alphaInY
+				shiftY = (dd2)*yStep - (yBoundaryExtension/2)*yStep
 
-		print("Properties: ",xMinLength,yMinLength,xMinLengthOut, yMinLengthOut,dd1,dd2)
-		print("Properties: ",xMaxLength,yMaxLength,xMaxLengthOut, yMaxLengthOut)
-		#print("Alpha X: ", alphaOutX, alphaOutY)
-		print("Local Domain Number: ",domainCount + 1)
+			xMinLength = xMin + shiftX
+			xMaxLength = xMin + shiftX + (1+xBoundaryExtension)*xStep
+			yMinLength = yMin + shiftY
+			yMaxLength = yMin + shiftY + (1+xBoundaryExtension)*yStep
+			xMinLengthOut = xMin + dd1*xStep
+			xMaxLengthOut = xMin + dd1*xStep + xStep
+			yMinLengthOut = yMin + dd2*yStep
+			yMaxLengthOut = yMin + dd2*yStep + yStep
+
+			print("Properties: ",xMinLength,yMinLength,xMinLengthOut, yMinLengthOut,dd1,dd2)
+			print("Properties: ",xMaxLength,yMaxLength,xMaxLengthOut, yMaxLengthOut)
+			#print("Alpha X: ", alphaOutX, alphaOutY)
+			print("Local Domain Number: ",domainCount + 1)
+			
+
+			if (dd1 == 0):
+				xMinLength -= 1.0
+				xMinLengthOut -= 1.0
+			if (dd2 == 0):
+				yMinLength -= 1.0
+				yMinLengthOut -= 1.0
+			if (dd1 == xDomainDecomposition-1):
+				xMaxLength += 1.0
+				xMaxLengthOut += 1.0
+			if (dd2 == yDomainDecomposition-1):
+				yMaxLength += 1.0
+				yMaxLengthOut += 1.0
+
+			# To create boxes for mesh
+			# xMinLength is the point at lowest X position, alphaInX*int(xGridStepIn+xBoundaryExtension) is the length of the block
+
+
+			#in_size = np.linspace(xMinLength, alphaInX*(xGridStepIn+xBoundaryExtension+1), int(xGridStepIn+xBoundaryExtension))
+			#print("in_size: ", in_size)
+			#in_size = np.linspace(xMinLength, edgeLengthX + xMinLength, inLen)
+			#out_size = np.linspace(yMinLength, alphaInY*(yGridStepIn+yBoundaryExtension+1), int(yGridStepIn+yBoundaryExtension))
+			#print("out_size: ", out_size)
+			#in_mesh = np.random.random((int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension),2))
+			#out_mesh = np.random.random((int(xGridStepOut)*int(yGridStepOut),2))
+			in_mesh_list = []
+			inner_in_mesh_list = []
+			out_mesh_list = []
+
+			#print("Local domain input vertices: ", int(yGridStepIn+yBoundaryExtension)*int(xGridStepIn+xBoundaryExtension))
+			#for j in range(0,int(yGridStepIn+yBoundaryExtension)):
+			#	for i in range(0,int(xGridStepIn+xBoundaryExtension)):
+			#		in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),0] = alphaInX*i + xMinLength
+			#		in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),1] = alphaInY*j + yMinLength
+					#if i == 0:
+					#print("in_mesh: ",in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),0])
+			#print("Local domain output vertices: ", int(yGridStepOut)*int(xGridStepOut))
+			#for j in range(0,int(yGridStepOut)):
+			#	for i in range(0,int(xGridStepOut)):
+			#		out_mesh[i+j*int(xGridStepOut),0] = alphaOutX*i + xMinLengthOut
+			#		out_mesh[i+j*int(xGridStepOut),1] = alphaOutY*j + yMinLengthOut
+					#if i == 0:
+					#	print("out_mesh: ",out_mesh[j+i*outLen,0])
+			#print(len(out_mesh))
+			inCount = 0
+			innerInCount = 0
+			for i in range(0,nPointsInput):
+				if ((in_mesh_global[i,0] >= xMinLength) and (in_mesh_global[i,0] <= xMaxLength) and (in_mesh_global[i,1] >= yMinLength) and (in_mesh_global[i,1] <= yMaxLength)):
+					in_mesh_list.append(i)
+					if ((in_mesh_global[i,0] >= xMinLengthOut) and (in_mesh_global[i,0] <= xMaxLengthOut) and (in_mesh_global[i,1] >= yMinLengthOut) and (in_mesh_global[i,1] <= yMaxLengthOut)):
+						inner_in_mesh_list.append(inCount)
+						innerInCount += 1
+					inCount += 1
+					
+
+
+			in_mesh = np.random.random((inCount,2))
+			for i in range(0,inCount):
+				in_mesh[i,0] = in_mesh_global[in_mesh_list[i],0]
+				in_mesh[i,1] = in_mesh_global[in_mesh_list[i],1]
+
+
+
+			outCount = 0
+			for i in range(0,nPointsOutput):
+				if ((out_mesh_global[i,0] >= xMinLengthOut) and (out_mesh_global[i,0] <= xMaxLengthOut) and (out_mesh_global[i,1] >= yMinLengthOut) and (out_mesh_global[i,1] <= yMaxLengthOut)):
+					out_mesh_list.append(i)
+					outCount += 1
+
+
+			out_mesh = np.random.random((outCount,2))
+			for i in range(0,outCount):
+				out_mesh[i,0] = out_mesh_global[out_mesh_list[i],0]
+				out_mesh[i,1] = out_mesh_global[out_mesh_list[i],1]
+
+
+			in_vals = func(in_mesh[:,0],in_mesh[:,1])
+			out_vals = func(out_mesh[:,0],out_mesh[:,1])
+
+			k = 0
+			
+			
+			if (rationalLocal == 1):
+				print("Using local Rational RBFs")
+				interpRational = Rational(bf, in_mesh, in_vals, rescale = False)	
+				fr = interpRational(in_vals, out_mesh)
+			else:
+				print("NOT Using local Rational RBFs")
+				fr = func(out_mesh[:,0],out_mesh[:,1])
+			
+			if (regularLocal == 1):
+				print("Using local Regular RBFs")
+				interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+				fr_regular = interp(out_mesh)
+				error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+				errorsLOOCV = error_LOOCV() 
+			else:	
+				print("NOT Using local Regular RBFs")	
+				fr_regular = func(out_mesh[:,0],out_mesh[:,1])
+				errorsLOOCV = func(in_mesh[:,0],in_mesh[:,1])
+
+			#out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
+			#print("out_vals: ", max(fr))
+			#print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
+			#print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
+			#maxRegError = max(out_vals - fr_regular)
+			#print("max fr: ", max(out_vals - fr))
+			#print("max regular: ", maxRegError)
+
+
+			for i in range(0,outCount):
+				out_vals_split_rational[out_mesh_list[i]] = fr[k]
+				out_vals_split_regular[out_mesh_list[i]] = fr_regular[k]
+				k += 1
+	
+			for i in range(0,innerInCount):
+				in_vals_local_LOOCV_error[in_mesh_list[inner_in_mesh_list[i]]] = errorsLOOCV[inner_in_mesh_list[i]]
+
+			#for j in range(0,int(yGridStepOut)):
+			#	for i in range(0,int(xGridStepOut)):
+					#Z[i,j] = out_vals[k]
+					#Z_split[i+int(xGridStepOutSet*dd1),j+int(yGridStepOutSet*dd2)] = fr[k]
+					###w = int((i+(dd1*xGridStepOutSet)) + ((j+(dd2*yGridStepOutSet))*(xOutMesh)))
+					#print(w)
+					###out_vals_split_rational[w] = fr[k]
+					###out_vals_split_regular[w] = fr_regular[k]
+					#Z_rational[i,j] = fr[k]
+					#Z_rational_error[i,j] = out_vals[k]- fr[k]
+					#Z_regular[i,j] = fr_regular[k]
+					#Z_regular_error[i,j] = out_vals[k]- fr_regular[k]
+			#		k += 1
+				#print("j: ", j)
+
+			'''
+			fig = plt.figure()
+			ax = fig.gca(projection='3d')
+			ax.set_xlabel('x axis')
+			ax.set_ylabel('y axis')
+			ax.set_title('Split mesh - Rational')
+			ax.plot_surface(Xtotal, Ytotal, Z_rational,cmap='viridis',linewidth=0,edgecolor='black')
+			plt.show()
+
+			fig = plt.figure()
+			ax = fig.gca(projection='3d')
+			ax.set_xlabel('x axis')
+			ax.set_ylabel('y axis')
+			ax.set_title('Split mesh - Regular')
+			ax.plot_surface(Xtotal, Ytotal, Z_regular,cmap='viridis',linewidth=0,edgecolor='black')
+			plt.show()
+			'''
 		domainCount += 1
-
-		if (dd1 == 0):
-			xMinLength -= 1.0
-			xMinLengthOut -= 1.0
-		if (dd2 == 0):
-			yMinLength -= 1.0
-			yMinLengthOut -= 1.0
-		if (dd1 == xDomainDecomposition-1):
-			xMaxLength += 1.0
-			xMaxLengthOut += 1.0
-		if (dd2 == yDomainDecomposition-1):
-			yMaxLength += 1.0
-			yMaxLengthOut += 1.0
-
-		# To create boxes for mesh
-		# xMinLength is the point at lowest X position, alphaInX*int(xGridStepIn+xBoundaryExtension) is the length of the block
-
-
-		#in_size = np.linspace(xMinLength, alphaInX*(xGridStepIn+xBoundaryExtension+1), int(xGridStepIn+xBoundaryExtension))
-		#print("in_size: ", in_size)
-		#in_size = np.linspace(xMinLength, edgeLengthX + xMinLength, inLen)
-		#out_size = np.linspace(yMinLength, alphaInY*(yGridStepIn+yBoundaryExtension+1), int(yGridStepIn+yBoundaryExtension))
-		#print("out_size: ", out_size)
-		#in_mesh = np.random.random((int(xGridStepIn+xBoundaryExtension)*int(yGridStepIn+yBoundaryExtension),2))
-		#out_mesh = np.random.random((int(xGridStepOut)*int(yGridStepOut),2))
-		in_mesh_list = []
-		out_mesh_list = []
-
-		#print("Local domain input vertices: ", int(yGridStepIn+yBoundaryExtension)*int(xGridStepIn+xBoundaryExtension))
-		#for j in range(0,int(yGridStepIn+yBoundaryExtension)):
-		#	for i in range(0,int(xGridStepIn+xBoundaryExtension)):
-		#		in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),0] = alphaInX*i + xMinLength
-		#		in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),1] = alphaInY*j + yMinLength
-				#if i == 0:
-				#print("in_mesh: ",in_mesh[i+j*int(xGridStepIn+xBoundaryExtension),0])
-		#print("Local domain output vertices: ", int(yGridStepOut)*int(xGridStepOut))
-		#for j in range(0,int(yGridStepOut)):
-		#	for i in range(0,int(xGridStepOut)):
-		#		out_mesh[i+j*int(xGridStepOut),0] = alphaOutX*i + xMinLengthOut
-		#		out_mesh[i+j*int(xGridStepOut),1] = alphaOutY*j + yMinLengthOut
-				#if i == 0:
-				#	print("out_mesh: ",out_mesh[j+i*outLen,0])
-		#print(len(out_mesh))
-		inCount = 0
-		for i in range(0,nPointsInput):
-			if ((in_mesh_global[i,0] >= xMinLength) and (in_mesh_global[i,0] <= xMaxLength) and (in_mesh_global[i,1] >= yMinLength) and (in_mesh_global[i,1] <= yMaxLength)):
-				in_mesh_list.append(i)
-				inCount += 1
-
-
-		in_mesh = np.random.random((inCount,2))
-		for i in range(0,inCount):
-			in_mesh[i,0] = in_mesh_global[in_mesh_list[i],0]
-			in_mesh[i,1] = in_mesh_global[in_mesh_list[i],1]
-
-
-
-		outCount = 0
-		for i in range(0,nPointsOutput):
-			if ((out_mesh_global[i,0] >= xMinLengthOut) and (out_mesh_global[i,0] <= xMaxLengthOut) and (out_mesh_global[i,1] >= yMinLengthOut) and (out_mesh_global[i,1] <= yMaxLengthOut)):
-				out_mesh_list.append(i)
-				outCount += 1
-
-
-		out_mesh = np.random.random((outCount,2))
-		for i in range(0,outCount):
-			out_mesh[i,0] = out_mesh_global[out_mesh_list[i],0]
-			out_mesh[i,1] = out_mesh_global[out_mesh_list[i],1]
-			
-
-		in_vals = func(in_mesh[:,0],in_mesh[:,1])
-		out_vals = func(out_mesh[:,0],out_mesh[:,1])
-
-		k = 0
-		
-		
-		if (rationalLocal == 1):
-			print("Using local Rational RBFs")
-			interpRational = Rational(bf, in_mesh, in_vals, rescale = False)	
-			fr = interpRational(in_vals, out_mesh)
-		else:
-			print("NOT Using local Rational RBFs")
-			fr = func(out_mesh[:,0],out_mesh[:,1])
-		
-		if (regularLocal == 1):
-			print("Using local Regular RBFs")
-			interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-			fr_regular = interp(out_mesh)
-		else:	
-			print("NOT Using local Regular RBFs")	
-			fr_regular = func(out_mesh[:,0],out_mesh[:,1])
-
-		#out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
-		#print("out_vals: ", max(fr))
-		#print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
-		#print("Error fr_regular= ", np.linalg.norm(out_vals - fr_regular, 2))
-		#maxRegError = max(out_vals - fr_regular)
-		#print("max fr: ", max(out_vals - fr))
-		#print("max regular: ", maxRegError)
-
-
-		for i in range(0,outCount):
-			out_vals_split_rational[out_mesh_list[i]] =fr[k]
-			out_vals_split_regular[out_mesh_list[i]] = fr_regular[k]
-			k += 1
-			
-
-		#for j in range(0,int(yGridStepOut)):
-		#	for i in range(0,int(xGridStepOut)):
-				#Z[i,j] = out_vals[k]
-				#Z_split[i+int(xGridStepOutSet*dd1),j+int(yGridStepOutSet*dd2)] = fr[k]
-				###w = int((i+(dd1*xGridStepOutSet)) + ((j+(dd2*yGridStepOutSet))*(xOutMesh)))
-				#print(w)
-				###out_vals_split_rational[w] = fr[k]
-				###out_vals_split_regular[w] = fr_regular[k]
-				#Z_rational[i,j] = fr[k]
-				#Z_rational_error[i,j] = out_vals[k]- fr[k]
-				#Z_regular[i,j] = fr_regular[k]
-				#Z_regular_error[i,j] = out_vals[k]- fr_regular[k]
-		#		k += 1
-			#print("j: ", j)
-
-		'''
-		fig = plt.figure()
-		ax = fig.gca(projection='3d')
-		ax.set_xlabel('x axis')
-		ax.set_ylabel('y axis')
-		ax.set_title('Split mesh - Rational')
-		ax.plot_surface(Xtotal, Ytotal, Z_rational,cmap='viridis',linewidth=0,edgecolor='black')
-		plt.show()
-
-		fig = plt.figure()
-		ax = fig.gca(projection='3d')
-		ax.set_xlabel('x axis')
-		ax.set_ylabel('y axis')
-		ax.set_title('Split mesh - Regular')
-		ax.plot_surface(Xtotal, Ytotal, Z_regular,cmap='viridis',linewidth=0,edgecolor='black')
-		plt.show()
-		'''
 
 end = time.time()
 print("Time for decomposed problem eigen decomposition: ", end-start)
@@ -689,38 +743,70 @@ for j in range(0,nPointsOutput):
 		global_local_regular_difference.append(out_vals_split_regular[k] - out_vals_global_regular[k])
 		k += 1 
 
-print("Error of Global Rational RBF: ", np.linalg.norm(out_vals_global_rational_error, 2))
+print("Error of Global Rational RBF:            ", np.linalg.norm(out_vals_global_rational_error, 2))
 print("Error of Local Rational RBF sub-domains: ", np.linalg.norm(out_vals_split_rational_error, 2))
 print("Max Global Rational RBF Error: ", max(abs(out_vals_global_rational_error)))
-print("Max Local Rational RBF Error: ", max(abs(out_vals_split_rational_error)))
+print("Max Local Rational RBF Error:  ", max(abs(out_vals_split_rational_error)))
 
-print("Error of Global Regular RBF: ", np.linalg.norm(out_vals_global_regular_error, 2))
+print("Error of Global Regular RBF:            ", np.linalg.norm(out_vals_global_regular_error, 2))
 print("Error of Local Regular RBF sub-domains: ", np.linalg.norm(out_vals_split_regular_error, 2))
+print("Error of Global Regular RBF            - LOOCV: ", np.linalg.norm(in_vals_global_LOOCV_error, 2))
+print("Error of Local Regular RBF sub-domains - LOOCV: ", np.linalg.norm(in_vals_local_LOOCV_error, 2))
 print("Max Global Regular RBF Error: ", max(abs(out_vals_global_regular_error)))
-print("Max Local Regular RBF Error: ", max(abs(out_vals_split_regular_error)))
+print("Max Local Regular RBF Error:  ", max(abs(out_vals_split_regular_error)))
+
+print("Interpolation error of non-boundary points for unit square")
+inputMeshAppend = []
+for i in range(0,nPointsInput):
+	if ((in_mesh_global[i,0] >= 0.1) and (in_mesh_global[i,0] <= 0.9) and (in_mesh_global[i,1] >= 0.1) and (in_mesh_global[i,1] <= 0.9)):
+		inputMeshAppend.append(i)
+
+in_mesh_error_check = np.random.random((len(inputMeshAppend),2))
+for i in range(0,len(inputMeshAppend)):
+	in_mesh_error_check[i,0] = in_mesh_global[inputMeshAppend[i],0]
+	in_mesh_error_check[i,1] = in_mesh_global[inputMeshAppend[i],1]
+
+in_vals_LOOCV_regular_global_error_check = 0*func(in_mesh_error_check[:,0],in_mesh_error_check[:,1])
+in_vals_LOOCV_regular_local_error_check = 0*func(in_mesh_error_check[:,0],in_mesh_error_check[:,1])
+
+for i in range(0,len(inputMeshAppend)):
+	in_vals_LOOCV_regular_global_error_check[i] = in_vals_global_LOOCV_error[inputMeshAppend[i]]
+	in_vals_LOOCV_regular_local_error_check[i] = in_vals_local_LOOCV_error[inputMeshAppend[i]]
+
+print("Non-boundary global - LOOCV: ", np.linalg.norm(in_vals_LOOCV_regular_global_error_check, 2))	
+print("Non-boundary local  - LOOCV: ", np.linalg.norm(in_vals_LOOCV_regular_local_error_check, 2))	
+	
 
 
-
-#fig = plt.figure()
-#ax = fig.add_subplot(1,1,1)
-
-#ax.triplot(triang, c="#D3D3D3", marker='.', markerfacecolor="#DC143C",markeredgecolor="black", markersize=10)
-
-#ax.set_xlabel('X')
-#ax.set_ylabel('Y')
-#plt.show()
-
-triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
-
+triang = mtri.Triangulation(in_mesh_global[:,0], in_mesh_global[:,1])
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1)
 
-ax.triplot(triang, c="#D3D3D3", marker='.', markerfacecolor="#DC143C",
-    markeredgecolor="black", markersize=10)
+ax.triplot(triang, c="#D3D3D3", marker='.', markerfacecolor="#DC143C",markeredgecolor="black", markersize=2)
 
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 plt.show()
+
+triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1)
+
+ax.triplot(triang, c="#D3D3D3", marker='.', markerfacecolor="#DC143C",markeredgecolor="black", markersize=2)
+
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+plt.show()
+
+#fig = plt.figure()
+#ax = fig.add_subplot(1,1,1)
+
+#ax.triplot(triang, c="#D3D3D3", marker='.', markerfacecolor="#DC143C",
+#    markeredgecolor="black", markersize=10)
+
+#ax.set_xlabel('X')
+#ax.set_ylabel('Y')
+#plt.show()
 
 #isBad = np.where((out_mesh_global[:,0] < xMin+0.01) | (out_mesh_global[:,0]>xMax-0.01) | (out_mesh_global[:,1]<yMin+0.01) | (out_mesh_global[:,1]>yMax-0.01), True, False)
 
@@ -731,7 +817,7 @@ plt.show()
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1, projection='3d')
 
-ax.plot_trisurf(triang, out_vals_global, cmap='jet')
+ax.plot_trisurf(triang, out_vals_global, cmap='inferno_r')
 ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global, marker='.', s=10, c="black", alpha=0.5)
 ax.view_init(elev=60, azim=-45)
 
@@ -814,6 +900,7 @@ if (rationalLocal == 1):
 	plt.show()
 
 if (regularLocal == 1):
+	triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
 	fig = plt.figure()
 	ax = fig.add_subplot(1,1,1, projection='3d')
 	#(ax1, ax2) = plt.subplots(1, 2, projection='3d')
@@ -828,7 +915,36 @@ if (regularLocal == 1):
 	ax.set_title('Error - Regular RBF on Local Grids')
 	plt.show()
 
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
+	
+	triang = mtri.Triangulation(in_mesh_global[:,0], in_mesh_global[:,1])
+	ax.plot_trisurf(triang, in_vals_local_LOOCV_error, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('LOOCV Error - Regular RBF on Local Grid')
+	plt.show()
+
+	triang = mtri.Triangulation(in_mesh_error_check[:,0], in_mesh_error_check[:,1])
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
+
+	ax.plot_trisurf(triang, in_vals_LOOCV_regular_local_error_check, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Non-boundary LOOCV - Local Grid')
+	plt.show()
+
 if (regularGlobal == 1):
+	triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
 	fig = plt.figure()
 	ax = fig.add_subplot(1,1,1, projection='3d')
 
@@ -842,7 +958,37 @@ if (regularGlobal == 1):
 	ax.set_title('Error - Regular RBF on Global Grid')
 	plt.show()
 
+	triang = mtri.Triangulation(in_mesh_global[:,0], in_mesh_global[:,1])
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
+
+	ax.plot_trisurf(triang, in_vals_global_LOOCV_error, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('LOOCV Error - Regular RBF on Global Grid')
+	plt.show()
+
+
+	triang = mtri.Triangulation(in_mesh_error_check[:,0], in_mesh_error_check[:,1])
+	fig = plt.figure()
+	ax = fig.add_subplot(1,1,1, projection='3d')
+
+	ax.plot_trisurf(triang, in_vals_LOOCV_regular_global_error_check, cmap='jet')
+	#ax.scatter(out_mesh_global[:,0], out_mesh_global[:,1],out_vals_global_regular_error, marker='.', s=10, c="black", alpha=0.5)
+	ax.view_init(elev=60, azim=-45)
+	
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_title('Non-boundary LOOCV - Global Grid')
+	plt.show()
+
 if (rationalLocal == 1):
+	triang = mtri.Triangulation(out_mesh_global[:,0], out_mesh_global[:,1])
 	fig = plt.figure()
 	ax = fig.add_subplot(1,1,1, projection='3d')
 

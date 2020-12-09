@@ -58,8 +58,8 @@ print(pointdata)
 
 start = time.time()
 j = 0
-nPoints = 2000
-nPointsOut = 100
+nPoints = 500
+nPointsOut = 200
 print("Number of points: ",nPoints)
 in_mesh = np.random.random((nPoints,2))
 
@@ -68,10 +68,11 @@ for i in range(0,nPoints):
 	in_mesh[i,0] = haltonPoints[0][i]
 	in_mesh[i,1] = haltonPoints[1][i]
 
+haltonPoints = halton_sequence(nPointsOut, 2)
 out_mesh = np.random.random((nPointsOut,2))
-for i in range(0,nPointsOut):
-	out_mesh[i,0] = haltonPoints[0][i] #+ 0.0001
-	out_mesh[i,1] = haltonPoints[1][i] #+ 0.01
+#for i in range(0,nPointsOut):
+#	out_mesh[i,0] = haltonPoints[0][i] + 0.1*randint(0, 1)
+#	out_mesh[i,1] = haltonPoints[1][i] + 0.1*randint(0, 1)
 
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
@@ -88,12 +89,12 @@ for j in range(0,nPoints):
 	nearest_neighbors.append(nnArray[0][1])
 	shape_params.append(0)
 
-for i in range(0,5):
+for i in range(0,1):
 	ntesting = 100 + i*0
 	#print("nearest_nighbors: ",nearest_neighbors)
 	maxNN = max(nearest_neighbors)
 	random_point_removal = [randint(0, nPoints) for p in range(0, ntesting)]
-	print(random_point_removal)
+	#print("Indices of randomly removed points: ", random_point_removal)
 	basis_mesh = np.random.random((nPoints,2))
 	evaluate_mesh_intermediate = np.random.random((ntesting,2))
 	#evaluate_mesh = []
@@ -130,7 +131,7 @@ for i in range(0,5):
 	LOOCVLowestPosition = 0
 	DoubleMeshLowestValue = 100
 	DoubleMeshLowestPosition = 0
-	for k in range(3,15):
+	for k in range(7,20):
 		shape_parameter = 4.55228/((k)*mesh_size)
 		#print("shape_parameter: ",shape_parameter)
 		bf = basisfunctions.Gaussian(shape_parameter)
@@ -163,11 +164,11 @@ for i in range(0,5):
 		#plt.plot(evaluate_mesh, evaluate_vals - interp(evaluate_mesh), label = "Error on selected points")
 		errors = evaluate_vals - interp(evaluate_mesh)
 		errorsFull = out_vals - interpFull(out_mesh)
-		plt.plot(in_mesh, errorsFull, label = "Error on selected points")
-		plt.show()
+		#plt.plot(in_mesh, errorsFull, label = "Error on selected points")
+		#plt.show()
 
 		#print("Testing error: ",errors)
-		print("Random removal - Average Testing error with k = ",k,": ", abs(np.average(errors)), " - Max Testing error: ", abs(max(errors)))
+		#print("Random removal - Average Testing error with k = ",k,": ", abs(np.average(errors)), " - Max Testing error: ", abs(max(errors)))
 		print("LOOCV - Average Error with k = ", k, ": ", abs(np.average(errorsLOOCV)), " - and max error: ", abs(max(errorsLOOCV)))
 		print("Double Mesh - Average Error with k = ", k, ": ", abs(np.average(errorsFull)), " - and max error: ", abs(max(errorsFull)))
 
