@@ -45,6 +45,7 @@ class RBF:
         if meshB.ndim == 1:
             meshB = meshB[:, np.newaxis]
         dm = scipy.spatial.distance_matrix(meshA, meshB)
+        #print("dm: ", dm)
         
         if type(self.basisfunction) is list:
             A = np.empty((len(meshA), len(meshB)))
@@ -330,8 +331,29 @@ class Rational(RBF):
         #for i in range(0,len(in_vals)):
         #    p[i] = self.D[i][i] * q[i]
         p = self.D @ q
-        #print("Q: ", q)
+        #print("Q normal: ", q)
         #print("P: ", p)
+        qk = np.random.rand(len(in_vals))*np.random.rand(len(in_vals)) 
+        qOld = np.random.rand(len(in_vals))
+        ## Finding eigen value
+        #for i in range(0,len(in_vals)):
+        #    qk.append(1)
+        #qk = np.random.random((in_vals))
+        #qk = qk/np.linalg.norm(qk,2)
+        #print("norm of random vector: ", np.linalg.norm(qk,2))
+
+        #Sinv = np.linalg.inv(S)
+        #for _ in range(10000):
+        #    z = Sinv @ qk
+        #    qk = z/np.linalg.norm(z,2)
+        #    newLambda = np.transpose(qk) @ Sinv @ qk
+        #    if (np.linalg.norm(qOld,2)-np.linalg.norm(qk,2) < 0.00000000000001):
+        #      #print("Eigen converged in k = ",k)
+        #      break
+        #    qOld = qk
+
+        #print("Q new method: ", qk)
+
 
         pAlpha = self.Cinv @ p 
         qAlpha = self.Cinv @ q

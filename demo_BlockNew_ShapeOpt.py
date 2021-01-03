@@ -94,6 +94,9 @@ def read_mesh(filename):
 #ax.plot_surface(Xtest, Ytest, Ztest,cmap='viridis',linewidth=0,edgecolor='black')
 #plt.show()
 
+inputScaling = 2
+outputScaling = 1
+
 
 if (useVTKIn == 1):
 	input_mesh_name = "Mesh/Plate/l2Data.vtk"
@@ -118,20 +121,20 @@ if (useVTKOut == 1):
 
 
 if (useHaltonIn == 1):
-	nPointsInput = 200
+	nPointsInput = 8
 	print("Number of Halton input points: ", nPointsInput)
 	in_mesh = np.random.random((nPointsInput,2))
 	in_mesh_local_LOOCV_error = np.random.random((nPointsInput,2))
 	in_mesh_global = np.random.random((nPointsInput,2))
 	haltonPoints = halton_sequence(nPointsInput, 2)
 	for i in range(0,nPointsInput):
-		in_mesh[i,0] = haltonPoints[0][i]
-		in_mesh[i,1] = haltonPoints[1][i]
-		in_mesh_global[i,0] = haltonPoints[0][i]
-		in_mesh_global[i,1] = haltonPoints[1][i]
+		in_mesh[i,0] = pow(haltonPoints[0][i],inputScaling)
+		in_mesh[i,1] = pow(haltonPoints[1][i],inputScaling)
+		in_mesh_global[i,0] = pow(haltonPoints[0][i],inputScaling)
+		in_mesh_global[i,1] = pow(haltonPoints[1][i],inputScaling)
 
 if (useHaltonOut == 1):
-	nPointsOutput = 400
+	nPointsOutput = 12
 	print("Number of Halton output points: ", nPointsOutput)
 	out_mesh = np.random.random((nPointsOutput,2))
 	out_mesh_global = np.random.random((nPointsOutput,2))
@@ -139,14 +142,14 @@ if (useHaltonOut == 1):
 	out_mesh_Split = np.random.random((nPointsOutput,2))
 	haltonPoints = halton_sequence(nPointsOutput, 2)
 	for i in range(0,nPointsOutput):
-		out_mesh[i,0] = haltonPoints[0][i]
-		out_mesh[i,1] = haltonPoints[1][i]
-		out_mesh_global[i,0] = haltonPoints[0][i]
-		out_mesh_global[i,1] = haltonPoints[1][i]
-		out_mesh_Combined[i,0] = haltonPoints[0][i]
-		out_mesh_Combined[i,1] = haltonPoints[1][i]
-		out_mesh_Split[i,0] = haltonPoints[0][i]
-		out_mesh_Split[i,1] = haltonPoints[1][i]
+		out_mesh[i,0] = pow(haltonPoints[0][i],outputScaling)
+		out_mesh[i,1] = pow(haltonPoints[1][i],outputScaling)
+		out_mesh_global[i,0] = pow(haltonPoints[0][i],outputScaling)
+		out_mesh_global[i,1] = pow(haltonPoints[1][i],outputScaling)
+		out_mesh_Combined[i,0] = pow(haltonPoints[0][i],outputScaling)
+		out_mesh_Combined[i,1] = pow(haltonPoints[1][i],outputScaling)
+		out_mesh_Split[i,0] = pow(haltonPoints[0][i],outputScaling)
+		out_mesh_Split[i,1] = pow(haltonPoints[1][i],outputScaling)
 
 start = time.time()
 
@@ -213,6 +216,7 @@ regularGlobal = 1
 rationalGlobal = 0
 regularLocal = 1
 rationalLocal = 0
+shapeOpt = 1
 
 ######################################################
 ######################################################
@@ -246,8 +250,8 @@ yGridStepOut = yOutMesh/yDomainDecomposition
 #inLen = 20
 #outLen = 30
 #### Even numbers only!!!!
-xBoundaryExtension = 0.3
-yBoundaryExtension = 0.3
+xBoundaryExtension = 0.2
+yBoundaryExtension = 0.2
 
 #edgeLengthX = InedgeLengthX/domainDecomposition
 #edgeLengthY = InedgeLengthY/domainDecomposition
@@ -272,9 +276,6 @@ yOutMesh += 1
 
 out_mesh_Combined_value = []
 out_mesh_Split_value = []
-
-inputScaling = 1
-outputScaling = 1
 
 if (useVTKIn == 1):
 	for j in range(0,len(input_mesh.points)):
@@ -302,7 +303,7 @@ if (useVTKOut == 1):
 
  
 #mesh_size = 1/math.sqrt(nPoints)
-mesh_size = 0.2
+mesh_size = 0.6
 shape_parameter = 4.55228/((1.0)*mesh_size)
 print("mesh width: ", mesh_size)
 print("shape_parameter: ", shape_parameter)
@@ -384,28 +385,65 @@ out_vals_split_regular_error = 0*func(out_mesh[:,0],out_mesh[:,1])
 out_vals_global_rational_error = 0*func(out_mesh[:,0],out_mesh[:,1])
 out_vals_global_regular_error = 0*func(out_mesh[:,0],out_mesh[:,1])
 
+shapeOptCount = 1
 if (rationalGlobal == 1):
-	start = time.time()
-	interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
-	end = time.time()
-	print("Time for Global rational inversion: ", end-start)	
-	start = time.time()
-	fr = interpRational(in_vals, out_mesh)
-	end = time.time()
-	print("Time for Global eigen decomposition: ", end-start)
+	if (shapeOpt == 1):
+		shapeOptCount = 10
+	for i in range(0,shapeOptCount):
+		print("Shape Optimization: ")
+		mesh_size = 0.4*(i+1)
+		shape_parameter = 4.55228/((1.0)*mesh_size)
+		print("mesh width: ", mesh_size)
+		print("shape_parameter: ", shape_parameter)
+		bf = basisfunctions.Gaussian(shape_parameter)
+		start = time.time()
+		interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
+		end = time.time()
+		print("Time for Global rational inversion: ", end-start)	
+		start = time.time()
+		fr = interpRational(in_vals, out_mesh)
+		end = time.time()
+		print("Time for Global eigen decomposition: ", end-start)
 else:
 	print("Not running the Global Rational RBF")
 	fr = func(out_mesh[:,0],out_mesh[:,1])
 
+maxErrorLOOCV = 100000
 if (regularGlobal == 1):
-	start = time.time()
+	if (shapeOpt == 1):
+		shapeOptCount = 10
+		meshErrorMin = 0
+	for i in range(0,shapeOptCount):
+		print("Shape Optimization: ")
+		mesh_size = 0.1*(i+1)
+		shape_parameter = 4.55228/((1.0)*mesh_size)
+		print("mesh width: ", mesh_size)
+		print("shape_parameter: ", shape_parameter)
+		bf = basisfunctions.Gaussian(shape_parameter)
+		start = time.time()
+		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+		fr_regular = interp(out_mesh)
+		end = time.time()
+		print("Time for Global regular solve: ", end-start)
+		start = time.time()
+		error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+		errorsLOOCV = error_LOOCV() 
+		print("L2 LOOCV error: ", np.linalg.norm(errorsLOOCV, 2))
+		if (np.linalg.norm(errorsLOOCV, 2) < maxErrorLOOCV):
+						maxErrorLOOCV = np.linalg.norm(errorsLOOCV, 2)
+						meshErrorMin = i+1
+
+	mesh_size = 0.1*meshErrorMin
+	shape_parameter = 4.55228/((1.0)*mesh_size)
+	print("mesh width: ", mesh_size)
+	print("shape_parameter: ", shape_parameter)
+	bf = basisfunctions.Gaussian(shape_parameter)
+	print("Using local Regular RBFs")
 	interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
 	fr_regular = interp(out_mesh)
-	end = time.time()
-	print("Time for Global regular solve: ", end-start)
-	start = time.time()
 	error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
 	errorsLOOCV = error_LOOCV() 
+	print("L2 LOOCV error: ", np.linalg.norm(errorsLOOCV, 2))
 else:
 	print("Not running the Global Regular RBF")
 	fr_regular = func(out_mesh[:,0],out_mesh[:,1])
@@ -642,11 +680,38 @@ for dd2 in range(0,yDomainDecomposition):
 				fr = func(out_mesh[:,0],out_mesh[:,1])
 			
 			if (regularLocal == 1):
+				maxErrorLOOCV = 100000
+				if (shapeOpt == 1):
+					shapeOptCount = 10
+					meshErrorMin = 0
+				for i in range(0,shapeOptCount):
+					print("Shape Optimization: ")
+					mesh_size = 0.1*(i+1)
+					shape_parameter = 4.55228/((1.0)*mesh_size)
+					print("mesh width: ", mesh_size)
+					print("shape_parameter: ", shape_parameter)
+					bf = basisfunctions.Gaussian(shape_parameter)
+					print("Using local Regular RBFs")
+					interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
+					fr_regular = interp(out_mesh)
+					error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+					errorsLOOCV = error_LOOCV() 
+					print("L2 LOOCV error: ", np.linalg.norm(errorsLOOCV, 2))
+					if (np.linalg.norm(errorsLOOCV, 2) < maxErrorLOOCV):
+						maxErrorLOOCV = np.linalg.norm(errorsLOOCV, 2)
+						meshErrorMin = i+1
+
+				mesh_size = 0.1*meshErrorMin
+				shape_parameter = 4.55228/((1.0)*mesh_size)
+				print("mesh width: ", mesh_size)
+				print("shape_parameter: ", shape_parameter)
+				bf = basisfunctions.Gaussian(shape_parameter)
 				print("Using local Regular RBFs")
 				interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
 				fr_regular = interp(out_mesh)
 				error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
 				errorsLOOCV = error_LOOCV() 
+				print("L2 LOOCV error: ", np.linalg.norm(errorsLOOCV, 2))
 			else:	
 				print("NOT Using local Regular RBFs")	
 				fr_regular = func(out_mesh[:,0],out_mesh[:,1])

@@ -46,6 +46,7 @@ class Gaussian(Basisfunction):
         threshold = np.sqrt( - np.log(10e-9) ) / self.s
         result = np.exp( -np.power(self.s * np.abs(radius), 2))
         result[ radius > threshold ] = 0;
+        print("result: ", result)
         return result
 
     @classmethod
