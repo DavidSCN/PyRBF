@@ -41,11 +41,13 @@ print("Size and rank: ", size, rank)
 
 useHaltonIn = 0
 useHaltonOut = 0
-useVTKIn = 1
-useVTKOut = 1
+useVTKIn = 0
+useVTKOut = 0
 useChebyIn = 0
 useChebyOut = 0
-useStructuredGrid = 0
+useStructuredGrid = 1
+
+startBegin = time.time()
 
 class Mesh:
 	"""
@@ -98,7 +100,7 @@ def read_mesh(filename):
 
 
 if (useVTKIn == 1):
-	input_mesh_name = "Mesh/Plate/out-0.03.vtk"
+	input_mesh_name = "Mesh/Plate/out-0.05.vtk"
 	#input_mesh_name = "Mesh/Turbine/out-0.005.vtk"
 	input_mesh = read_mesh(input_mesh_name)
 	print("Number of input points: ", len(input_mesh.points))
@@ -110,7 +112,7 @@ if (useVTKIn == 1):
 
 if (useVTKOut == 1):
 	#output_mesh_name = "Mesh/Plate/l3Data.vtk"
-	output_mesh_name = "Mesh/Plate/l1Data.vtk"
+	output_mesh_name = "Mesh/Plate/l2Data.vtk"
 	output_mesh = read_mesh(output_mesh_name)
 	print("Number of output points: ", len(output_mesh.points))
 	nPointsOutput = len(output_mesh.points)
@@ -200,11 +202,11 @@ Define the parameters of in and out meshes
 
 #inLenTotal = 60 #now xMesh	
 #outLenTotal = 45 # now yMesh
-xInMesh = 4
-yInMesh = 4
+xInMesh = 20
+yInMesh = 20
 
-xOutMesh = 1
-yOutMesh = 1
+xOutMesh = 100
+yOutMesh = 100
 
 
 xMin = 0
@@ -354,10 +356,10 @@ if (useStructuredGrid == 1):
 if (useVTKIn == 1):
 	for j in range(0,len(input_mesh.points)):
 		#if(input_mesh.points[j][2] > -10):
-		in_mesh[j,0] = pow(input_mesh.points[j][0] + 0.0,inputScaling)
-		in_mesh[j,1] = pow(input_mesh.points[j][1] + 0.0,inputScaling)
-		in_mesh_global[j,0] = pow(input_mesh.points[j][0] + 0.0,inputScaling)
-		in_mesh_global[j,1] = pow(input_mesh.points[j][1] + 0.0,inputScaling)
+		in_mesh[j,0] = pow(input_mesh.points[j][0] + 0.5,inputScaling)
+		in_mesh[j,1] = pow(input_mesh.points[j][1] + 0.5,inputScaling)
+		in_mesh_global[j,0] = pow(input_mesh.points[j][0] + 0.5,inputScaling)
+		in_mesh_global[j,1] = pow(input_mesh.points[j][1] + 0.5,inputScaling)
 		#else:
 		#	in_mesh[j,0] = pow(input_mesh.points[j][0] + 0.5,inputScaling)*0.00001
 		#	in_mesh[j,1] = pow(input_mesh.points[j][1] + 0.5,inputScaling)*0.00001
@@ -369,14 +371,14 @@ if (useVTKOut == 1):
 	for j in range(0,len(output_mesh.points)):
 		#out_mesh[j+i*outLenTotal,0] = (OutedgeLengthX/outLenTotal)*j + OutxMinLength
 		#if(output_mesh.points[j][2] > -10):
-		out_mesh[j,0] = pow(output_mesh.points[j][0] + 0.0,outputScaling)
-		out_mesh[j,1] = pow(output_mesh.points[j][1] + 0.0,outputScaling)
-		out_mesh_global[j,0] = pow(output_mesh.points[j][0] + 0.0,outputScaling)
-		out_mesh_global[j,1] = pow(output_mesh.points[j][1] + 0.0,outputScaling)
-		out_mesh_Combined[j,0] = pow(output_mesh.points[j][0] + 0.0,outputScaling)
-		out_mesh_Combined[j,1] = pow(output_mesh.points[j][1] + 0.0,outputScaling)
-		out_mesh_Split[j,0] = pow(output_mesh.points[j][0] + 0.0,outputScaling)
-		out_mesh_Split[j,1] = pow(output_mesh.points[j][1] + 0.0,outputScaling)
+		out_mesh[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
+		out_mesh_global[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh_global[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
+		out_mesh_Combined[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh_Combined[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
+		out_mesh_Split[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)
+		out_mesh_Split[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)
 		#else:
 		#	out_mesh[j,0] = pow(output_mesh.points[j][0] + 0.5,outputScaling)*0.00001	
 		#	out_mesh[j,1] = pow(output_mesh.points[j][1] + 0.5,outputScaling)*0.00001	
@@ -405,7 +407,7 @@ bf = basisfunctions.Gaussian(shape_parameter)
 Functions to test
 '''
 #func = lambda x,y: np.exp(-100*((0.5*pow(x-0.5,2))+(0.5*pow(y-0.5,2))))
-func = lambda x,y: np.cos(10*(x+y))
+func = lambda x,y: (1/9)*(np.tanh(9*y - 9*x) + 1)
 
 ## Complex sin function
 lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
@@ -421,6 +423,40 @@ lambda x,y: np.arctan(125*(pow(pow(x-1.5,2) + pow(y-0.25,2),0.5) - 0.92))
 
 ## Unit values
 lambda x,y: np.ones_like(x)
+
+## Sin and Cos function
+lambda x,y: np.cos(3*(x)) + np.sin(3*(y))
+
+## F1
+lambda x,y: 0.75*np.exp(-((pow(9*x-2,2)) + (pow(9*y-2,2)))/4) + 0.75*np.exp(-(pow(9*x+1,2)/49) - ((9*y+1)/10)) + 0.5*np.exp(-((pow(9*x-7,2)) + (pow(9*y-3,2)))/4) - 0.2*np.exp(-((pow(9*x-4,2)) + (pow(9*y-7,2))))
+
+## F2
+lambda x,y: (1/9)*(np.tanh(9*y - 9*x) + 1)
+
+## F3
+lambda x,y: (1.25 + np.cos(5.4*y))/(6*(1 + pow(3*x - 1,2)))
+
+## F4
+lambda x,y: (1/3)*np.exp(-(81/16)*(pow(x-0.5,2) + pow(y-0.5,2)))
+
+## F5
+#lambda x,y:
+
+## F6
+#lambda x,y:
+
+### Cavoretti:
+
+## F2
+lambda x,y: np.cos(10*(x+y))
+
+## F3
+lambda x,y: pow(x + y - 1,9)
+
+## F3
+#lambda x,y:
+
+
 
 stepFunction = 0	# Apply step function values if = 1
 
@@ -480,46 +516,34 @@ tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 
 
-singlePointTestAll = 1
+singlePointTestAll = 10
 start = time.time()
 real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
-'''
-kNN = 20
-in_mesh_2 = np.random.random(((kNN),2)) - 0.5
-out_mesh = 0.1*np.random.random(((1),2)) + 0.5
-out_mesh[0,0] = 0.25
-out_mesh[0,1] = 0.62
-queryPt = (out_mesh[0,0],out_mesh[0,1])
-nnArray = tree.query(queryPt,kNN)
-for i in range(0,kNN):
-	in_mesh_2[i,0] = in_mesh[nnArray[1][i],0]
-	in_mesh_2[i,1] = in_mesh[nnArray[1][i],1]
-in_vals = func(in_mesh_2[:,0],in_mesh_2[:,1])
-real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
-print("Real Out_value: ",real_out_vals)
-'''
+
 for i in range(0,singlePointTestAll):
 	#in_mesh = np.random.random(((30),2)) - 0.5
 	#out_mesh = 0*np.random.random(((1),2))
 	#in_vals = func(in_mesh[:,0],in_mesh[:,1])
 	#print("In Value: ", in_vals)
-	#mesh_size = 0.02*i + 0.02
-	mesh_size = 0.4
-	#shape_parameter = 4.55228/((1.0)*mesh_size)
-	shape_parameter = 11
+	mesh_size = 0.1*i + 0.1
+	#mesh_size = 0.4
+	shape_parameter = 4.55228/((1.0)*mesh_size)
+	#shape_parameter = 3
 	print("mesh width: ", mesh_size)
 	#print("shape_parameter: ", shape_parameter)
 	bf = basisfunctions.Gaussian(shape_parameter)
 
 	if (rationalGlobal == 1):
 		#start = time.time()
-		interpRational = Rational(bf, in_mesh_2, in_vals, rescale = False)
+		interpRational = Rational(bf, in_mesh, in_vals, rescale = False)
 		#end = time.time()
 		#print("Time for Global rational inversion: ", end-start)	
 		#start = time.time()
+		regErrorGlobalRational = 0
 		fr = interpRational(in_vals, out_mesh)
-		print("Out_value: ",fr)
-		print("L2 Out Rational: ", np.linalg.norm(real_out_vals - fr, 2))
+		regErrorGlobalRational = pow(sum(pow(real_out_vals - fr,2))/len(out_mesh),0.5)
+		#print("Out_value: ",fr)
+		#print("L2 Out Rational: ", np.linalg.norm(real_out_vals - fr, 2))
 		#end = time.time()
 		#print("Time for Global eigen decomposition: ", end-start)
 	else:
@@ -533,16 +557,23 @@ for i in range(0,singlePointTestAll):
 		#start = time.time()
 		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
 		fr_regular = interp(out_mesh)
-		print("Out_value: ",fr_regular)
-		regError = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
-		print("L2 Out Regular: ", regError)
+		#print("Out_value: ",fr_regular)
+		regErrorGlobalRegular = 0
+		regErrorGlobalRegular = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
+		print("L2 Out Regular: ", regErrorGlobalRegular)
 		#print("L2 Out Regular: ", np.linalg.norm(real_out_vals - fr_regular, 2))
-		end = time.time()
-		print("Time for Global regular solve: ", end-start)
+		#end = time.time()
+		#print("Time for Global regular solve: ", end-start)
 		#start = time.time()
 		#print("Starting Global Regular LOOCV")
 		error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+		loocvErrorGlobalRegular = 0
 		errorsLOOCV = error_LOOCV() 
+		for k in range(0,len(errorsLOOCV)):
+			loocvErrorGlobalRegular += pow(errorsLOOCV[k],2)
+		loocvErrorGlobalRegular = loocvErrorGlobalRegular/len(in_mesh)
+		loocvErrorGlobalRegular = pow(loocvErrorGlobalRegular,0.5)
+		print("L2 Error LOOCV: ", loocvErrorGlobalRegular)
 		#plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh")
 		#plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")	
 		#plt.show()
@@ -552,10 +583,10 @@ for i in range(0,singlePointTestAll):
 		errorsLOOCV = func(in_mesh[:,0],in_mesh[:,1])
 
 end = time.time()
+print("Time for Global regular solve: ", end-start)
 plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh")
 plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")	
-plt.show()
-print("Time for Global regular solve: ", end-start)
+#plt.show()
 #out_vals = funcTan(out_mesh[:,0], out_mesh[:,1])
 #print("out_vals: ", max(fr))
 #print("Error fr= ", np.linalg.norm(out_vals - fr, 2))
@@ -875,6 +906,9 @@ plt.show()
 global_local_rational_difference = []
 global_local_regular_difference = []
 
+endBegin = time.time()
+print("Total time for all: ", endBegin - startBegin)
+
 k = 0
 for j in range(0,nPointsOutput):
 		#Z_split_error[i,j] = Z_combined[i,j] - Z_split[i,j]
@@ -893,9 +927,11 @@ print("Error of Local Rational RBF sub-domains: ", np.linalg.norm(out_vals_split
 print("Max Global Rational RBF Error: ", max(abs(out_vals_global_rational_error)))
 print("Max Local Rational RBF Error:  ", max(abs(out_vals_split_rational_error)))
 
-print("Error of Global Regular RBF:            ", np.linalg.norm(out_vals_global_regular_error, 2))
+#print("Error of Global Regular RBF:            ", np.linalg.norm(out_vals_global_regular_error, 2))
+print("Error of Global Regular RBF:            ", regErrorGlobalRegular)
 print("Error of Local Regular RBF sub-domains: ", np.linalg.norm(out_vals_split_regular_error, 2))
-print("Error of Global Regular RBF            - LOOCV: ", np.linalg.norm(in_vals_global_LOOCV_error, 2))
+#print("Error of Global Regular RBF            - LOOCV: ", np.linalg.norm(in_vals_global_LOOCV_error, 2))
+print("Error of Global Regular RBF            - LOOCV: ", loocvErrorGlobalRegular)
 print("Error of Local Regular RBF sub-domains - LOOCV: ", np.linalg.norm(in_vals_local_LOOCV_error, 2))
 print("Max Global Regular RBF Error: ", max(abs(out_vals_global_regular_error)))
 print("Max Local Regular RBF Error:  ", max(abs(out_vals_split_regular_error)))

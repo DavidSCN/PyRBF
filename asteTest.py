@@ -98,7 +98,7 @@ def read_mesh(filename):
 
 
 if (useVTKIn == 1):
-	input_mesh_name = "Mesh/Plate/out-0.03.vtk"
+	input_mesh_name = "Mesh/Plate/l1Data.vtk"
 	#input_mesh_name = "Mesh/Turbine/out-0.005.vtk"
 	input_mesh = read_mesh(input_mesh_name)
 	print("Number of input points: ", len(input_mesh.points))
@@ -110,7 +110,7 @@ if (useVTKIn == 1):
 
 if (useVTKOut == 1):
 	#output_mesh_name = "Mesh/Plate/l3Data.vtk"
-	output_mesh_name = "Mesh/Plate/l1Data.vtk"
+	output_mesh_name = "Mesh/Plate/l3Data.vtk"
 	output_mesh = read_mesh(output_mesh_name)
 	print("Number of output points: ", len(output_mesh.points))
 	nPointsOutput = len(output_mesh.points)
@@ -480,24 +480,12 @@ tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 
 
-singlePointTestAll = 1
+singlePointTestAll = len(output_mesh.points)
 start = time.time()
-real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
-'''
-kNN = 20
-in_mesh_2 = np.random.random(((kNN),2)) - 0.5
-out_mesh = 0.1*np.random.random(((1),2)) + 0.5
-out_mesh[0,0] = 0.25
-out_mesh[0,1] = 0.62
-queryPt = (out_mesh[0,0],out_mesh[0,1])
-nnArray = tree.query(queryPt,kNN)
-for i in range(0,kNN):
-	in_mesh_2[i,0] = in_mesh[nnArray[1][i],0]
-	in_mesh_2[i,1] = in_mesh[nnArray[1][i],1]
-in_vals = func(in_mesh_2[:,0],in_mesh_2[:,1])
-real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
-print("Real Out_value: ",real_out_vals)
-'''
+regError = 0
+real_out_mesh = np.random.random((1,2))
+kNN = 5
+in_mesh_2 = np.random.random(((kNN),2))
 for i in range(0,singlePointTestAll):
 	#in_mesh = np.random.random(((30),2)) - 0.5
 	#out_mesh = 0*np.random.random(((1),2))
@@ -506,10 +494,19 @@ for i in range(0,singlePointTestAll):
 	#mesh_size = 0.02*i + 0.02
 	mesh_size = 0.4
 	#shape_parameter = 4.55228/((1.0)*mesh_size)
-	shape_parameter = 11
+	shape_parameter = 3
 	print("mesh width: ", mesh_size)
 	#print("shape_parameter: ", shape_parameter)
 	bf = basisfunctions.Gaussian(shape_parameter)
+	real_out_mesh[0,0] = out_mesh[i,0]
+	real_out_mesh[0,1] = out_mesh[i,1]
+	real_out_vals = func(real_out_mesh[:,0],real_out_mesh[:,1])
+	queryPt = (out_mesh[0,0],out_mesh[0,1])
+	nnArray = tree.query(queryPt,kNN)
+	for j in range(0,kNN):
+		in_mesh_2[j,0] = in_mesh[nnArray[1][j],0]
+		in_mesh_2[j,1] = in_mesh[nnArray[1][j],1]
+	in_vals_2 = func(in_mesh_2[:,0],in_mesh_2[:,1])
 
 	if (rationalGlobal == 1):
 		#start = time.time()
@@ -519,7 +516,7 @@ for i in range(0,singlePointTestAll):
 		#start = time.time()
 		fr = interpRational(in_vals, out_mesh)
 		print("Out_value: ",fr)
-		print("L2 Out Rational: ", np.linalg.norm(real_out_vals - fr, 2))
+		print("L2 Out Rational: ", np.linalg.norm(out_vals - fr, 2))
 		#end = time.time()
 		#print("Time for Global eigen decomposition: ", end-start)
 	else:
@@ -531,14 +528,14 @@ for i in range(0,singlePointTestAll):
 
 	if (regularGlobal == 1):
 		#start = time.time()
-		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-		fr_regular = interp(out_mesh)
+		interp = NoneConsistent(bf, in_mesh_2, in_vals_2, rescale = False)
+		fr_regular = interp(real_out_mesh)
 		print("Out_value: ",fr_regular)
-		regError = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
-		print("L2 Out Regular: ", regError)
+		regError = regError + pow(sum(pow(real_out_vals - fr_regular,2))/len(real_out_mesh),0.5)
+		print("Relative L2 Out Regular: ", regError)
 		#print("L2 Out Regular: ", np.linalg.norm(real_out_vals - fr_regular, 2))
 		end = time.time()
-		print("Time for Global regular solve: ", end-start)
+		print("Time for Global regular solve: ", i)
 		#start = time.time()
 		#print("Starting Global Regular LOOCV")
 		error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
