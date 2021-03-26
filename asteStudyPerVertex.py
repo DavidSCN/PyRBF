@@ -202,11 +202,11 @@ Define the parameters of in and out meshes
 
 #inLenTotal = 60 #now xMesh	
 #outLenTotal = 45 # now yMesh
-xInMesh = 20
-yInMesh = 20
+xInMesh = 400
+yInMesh = 400
 
-xOutMesh = 100
-yOutMesh = 100
+xOutMesh = 80
+yOutMesh = 80
 
 
 xMin = 0
@@ -407,7 +407,7 @@ bf = basisfunctions.Gaussian(shape_parameter)
 Functions to test
 '''
 #func = lambda x,y: np.exp(-100*((0.5*pow(x-0.5,2))+(0.5*pow(y-0.5,2))))
-func = lambda x,y: (1/9)*(np.tanh(9*y - 9*x) + 1)
+func = lambda x,y: 0.75*np.exp(-((pow(9*x-2,2)) + (pow(9*y-2,2)))/4) + 0.75*np.exp(-(pow(9*x+1,2)/49) - ((9*y+1)/10)) + 0.5*np.exp(-((pow(9*x-7,2)) + (pow(9*y-3,2)))/4) - 0.2*np.exp(-((pow(9*x-4,2)) + (pow(9*y-7,2))))
 
 ## Complex sin function
 lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
@@ -514,9 +514,11 @@ out_vals_global_regular_error = 0*func(out_mesh[:,0],out_mesh[:,1])
 
 tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
+kNN = 60
+out_mesh_2 = np.random.random(((1),2)) + 0.5
+in_mesh_2 = np.random.random(((kNN),2)) - 0.5
 
-
-singlePointTestAll = 10
+singlePointTestAll = len(out_mesh)
 start = time.time()
 real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
 
@@ -525,11 +527,22 @@ for i in range(0,singlePointTestAll):
 	#out_mesh = 0*np.random.random(((1),2))
 	#in_vals = func(in_mesh[:,0],in_mesh[:,1])
 	#print("In Value: ", in_vals)
-	mesh_size = 0.1*i + 0.1
-	#mesh_size = 0.4
-	shape_parameter = 4.55228/((1.0)*mesh_size)
+	out_mesh_2[0,0] = out_mesh[i,0]
+	out_mesh_2[0,1] = out_mesh[i,1]
+	#real_out_vals = func(out_mesh_2[0,0],out_mesh_2[0,1])
+	queryPt = (out_mesh[i,0],out_mesh[i,1])
+	nnArray = tree.query(queryPt,kNN)
+	for kk in range(0,kNN):
+		in_mesh_2[kk,0] = in_mesh[nnArray[1][kk],0]
+		in_mesh_2[kk,1] = in_mesh[nnArray[1][kk],1]
+	in_vals_2 = func(in_mesh_2[:,0],in_mesh_2[:,1])
+	shape_parameter = 4.55228/(nnArray[0][kNN - 1])
+	#shape_param.append(4.55228/(meshWidthScale*nnArray[0][kNN - 1]))
+	#mesh_size = 0.1*i + 0.1
+	mesh_size = 0.4
+	#shape_parameter = 4.55228/((1.0)*mesh_size)
 	#shape_parameter = 3
-	print("mesh width: ", mesh_size)
+	#print("mesh width: ", mesh_size)
 	#print("shape_parameter: ", shape_parameter)
 	bf = basisfunctions.Gaussian(shape_parameter)
 
@@ -541,39 +554,38 @@ for i in range(0,singlePointTestAll):
 		#start = time.time()
 		regErrorGlobalRational = 0
 		fr = interpRational(in_vals, out_mesh)
-		regErrorGlobalRational = pow(sum(pow(real_out_vals - fr,2))/len(out_mesh),0.5)
+		regErrorGlobalRational = pow(sum(pow(real_out_vals - fr,2))/1,0.5)
 		#print("Out_value: ",fr)
 		#print("L2 Out Rational: ", np.linalg.norm(real_out_vals - fr, 2))
 		#end = time.time()
 		#print("Time for Global eigen decomposition: ", end-start)
 	else:
-		print("Not running the Global Rational RBF")
-		fr = func(out_mesh[:,0],out_mesh[:,1])
-
-
+		#print("Not running the Global Rational RBF")
+		fr = func(out_mesh_2[:,0],out_mesh_2[:,1])
 
 
 	if (regularGlobal == 1):
 		#start = time.time()
-		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-		fr_regular = interp(out_mesh)
+		interp = NoneConsistent(bf, in_mesh_2, in_vals_2, rescale = False)
+		fr_regular, errorsLOOCV = interp(out_mesh_2)
 		#print("Out_value: ",fr_regular)
-		regErrorGlobalRegular = 0
-		regErrorGlobalRegular = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
-		print("L2 Out Regular: ", regErrorGlobalRegular)
+		#regErrorGlobalRegular = 0
+		#regErrorGlobalRegular = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
+		out_vals_global_regular[i] = fr_regular[0]
+		##print("L2 Out Regular: ", regErrorGlobalRegular)
 		#print("L2 Out Regular: ", np.linalg.norm(real_out_vals - fr_regular, 2))
 		#end = time.time()
 		#print("Time for Global regular solve: ", end-start)
 		#start = time.time()
 		#print("Starting Global Regular LOOCV")
-		error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+		#error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
 		loocvErrorGlobalRegular = 0
-		errorsLOOCV = error_LOOCV() 
+		#errorsLOOCV = error_LOOCV() 
 		for k in range(0,len(errorsLOOCV)):
 			loocvErrorGlobalRegular += pow(errorsLOOCV[k],2)
 		loocvErrorGlobalRegular = loocvErrorGlobalRegular/len(in_mesh)
 		loocvErrorGlobalRegular = pow(loocvErrorGlobalRegular,0.5)
-		print("L2 Error LOOCV: ", loocvErrorGlobalRegular)
+		##print("L2 Error LOOCV: ", loocvErrorGlobalRegular)
 		#plt.scatter(in_mesh[:,0], in_mesh[:,1], label = "In Mesh")
 		#plt.scatter(out_mesh[:,0], out_mesh[:,1], label = "Out Mesh")	
 		#plt.show()
@@ -602,8 +614,10 @@ globalRationalL2Error = np.linalg.norm(out_vals - fr, 2)
 k=0
 for k in range(0,len(fr)):
 		out_vals_global_rational[k] = fr[k]
-		out_vals_global_regular[k] = fr_regular[k]
+#		out_vals_global_regular[k] = fr_regular[k]
 
+for k in range(0,len(out_mesh)):
+	regErrorGlobalRegular = pow(sum(pow(real_out_vals - out_vals_global_regular,2))/len(out_mesh),0.5)
 
 k=0
 for k in range(0,len(errorsLOOCV)):

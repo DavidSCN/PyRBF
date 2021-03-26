@@ -41,11 +41,11 @@ print("Size and rank: ", size, rank)
 
 useHaltonIn = 0
 useHaltonOut = 0
-useVTKIn = 1
-useVTKOut = 1
+useVTKIn = 0
+useVTKOut = 0
 useChebyIn = 0
 useChebyOut = 0
-useStructuredGrid = 0
+useStructuredGrid = 1
 
 startBegin = time.time()
 
@@ -202,11 +202,11 @@ Define the parameters of in and out meshes
 
 #inLenTotal = 60 #now xMesh	
 #outLenTotal = 45 # now yMesh
-xInMesh = 20
-yInMesh = 20
+xInMesh = 60
+yInMesh = 60
 
-xOutMesh = 30
-yOutMesh = 30
+xOutMesh = 33
+yOutMesh = 33
 
 
 xMin = 0
@@ -312,7 +312,7 @@ yOutMesh += 1
 out_mesh_Combined_value = []
 out_mesh_Split_value = []
 
-inputScaling = 1.2
+inputScaling = 1.0
 outputScaling = 1.0
 
 if (useStructuredGrid == 1):
@@ -517,7 +517,7 @@ nearest_neighbors = [5,10,15,20,25,30,40,50,60,70,80,90,100]
 
 
 
-kNN = 5
+kNN = 60
 
 singlePointTestAll = len(nearest_neighbors)
 singlePointTestAll = 1
@@ -526,7 +526,6 @@ real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
 
 for i in range(0,singlePointTestAll):
 	#kNN = nearest_neighbors[i]
-	kNN = 120
 	meshWidthScale = 1
 	shape_param = []
 	shape_param_out = []
@@ -597,7 +596,7 @@ for i in range(0,singlePointTestAll):
 	if (regularGlobal == 1):
 		#start = time.time()
 		interp = NoneConsistentGaussian(bf, in_mesh, in_vals, shape_param, rescale = False)
-		fr_regular = interp(out_mesh,shape_param)
+		fr_regular, errorsLOOCV = interp(out_mesh,shape_param)
 		#print("Out_value: ",fr_regular)
 		regErrorGlobalRegular = 0
 		regErrorGlobalRegular = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
@@ -607,9 +606,9 @@ for i in range(0,singlePointTestAll):
 		#print("Time for Global regular solve: ", end-start)
 		#start = time.time()
 		#print("Starting Global Regular LOOCV")
-		error_LOOCV = LOOCV_Adaptive(bf, in_mesh, in_vals, shape_param, rescale = False)
+		#error_LOOCV = LOOCV_Adaptive(bf, in_mesh, in_vals, shape_param, rescale = False)
 		loocvErrorGlobalRegular = 0
-		errorsLOOCV = error_LOOCV() 
+		#errorsLOOCV = error_LOOCV() 
 		for k in range(0,len(errorsLOOCV)):
 			loocvErrorGlobalRegular += pow(errorsLOOCV[k],2)
 		loocvErrorGlobalRegular = loocvErrorGlobalRegular/len(in_mesh)
