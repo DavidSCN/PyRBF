@@ -41,11 +41,11 @@ print("Size and rank: ", size, rank)
 
 useHaltonIn = 0
 useHaltonOut = 0
-useVTKIn = 1
-useVTKOut = 1
+useVTKIn = 0
+useVTKOut = 0
 useChebyIn = 0
 useChebyOut = 0
-useStructuredGrid = 0
+useStructuredGrid = 1
 
 startBegin = time.time()
 
@@ -202,11 +202,11 @@ Define the parameters of in and out meshes
 
 #inLenTotal = 60 #now xMesh	
 #outLenTotal = 45 # now yMesh
-xInMesh = 20
-yInMesh = 20
+xInMesh = 10
+yInMesh = 10
 
-xOutMesh = 30
-yOutMesh = 30
+xOutMesh = 50
+yOutMesh = 50
 
 
 xMin = 0
@@ -312,7 +312,7 @@ yOutMesh += 1
 out_mesh_Combined_value = []
 out_mesh_Split_value = []
 
-inputScaling = 2.0
+inputScaling = 1.0
 outputScaling = 1.0
 
 if (useStructuredGrid == 1):
@@ -395,7 +395,7 @@ if (useVTKOut == 1):
 
  
 #mesh_size = 1/math.sqrt(nPoints)
-mesh_size = 2
+mesh_size = 0.05
 shape_parameter = 4.55228/((1.0)*mesh_size)
 print("mesh width: ", mesh_size)
 print("shape_parameter: ", shape_parameter)
@@ -407,7 +407,7 @@ bf = basisfunctions.Gaussian(shape_parameter)
 Functions to test
 '''
 #func = lambda x,y: np.exp(-100*((0.5*pow(x-0.5,2))+(0.5*pow(y-0.5,2))))
-func = lambda x,y: 0.75*np.exp(-((pow(9*x-2,2)) + (pow(9*y-2,2)))/4) + 0.75*np.exp(-(pow(9*x+1,2)/49) - ((9*y+1)/10)) + 0.5*np.exp(-((pow(9*x-7,2)) + (pow(9*y-3,2)))/4) - 0.2*np.exp(-((pow(9*x-4,2)) + (pow(9*y-7,2))))
+func = lambda x,y: np.cos(3*(x)) + np.sin(3*(y))
 
 ## Complex sin function
 lambda x,y: 0.5*np.sin(2*x*y)+(0.0000001*y)
@@ -516,7 +516,7 @@ tree = spatial.KDTree(list(zip(in_mesh[:,0],in_mesh[:,1])))
 nearest_neighbors = []
 
 
-singlePointTestAll = 2
+singlePointTestAll = 1
 start = time.time()
 real_out_vals = func(out_mesh[:,0],out_mesh[:,1])
 
@@ -526,11 +526,11 @@ for i in range(0,singlePointTestAll):
 	#in_vals = func(in_mesh[:,0],in_mesh[:,1])
 	#print("In Value: ", in_vals)
 	#mesh_size = 0.1*i + 0.1
-	mesh_size = 0.2
+	mesh_size = 0.5
 	shape_parameter = 4.55228/((1.0)*mesh_size)
 	#shape_parameter = 3
 	print("mesh width: ", mesh_size)
-	#print("shape_parameter: ", shape_parameter)
+	print("shape_parameter: ", shape_parameter)
 	bf = basisfunctions.Gaussian(shape_parameter)
 
 	if (rationalGlobal == 1):
@@ -556,7 +556,7 @@ for i in range(0,singlePointTestAll):
 	if (regularGlobal == 1):
 		#start = time.time()
 		interp = NoneConsistent(bf, in_mesh, in_vals, rescale = False)
-		fr_regular = interp(out_mesh)
+		fr_regular, errorsLOOCV = interp(out_mesh)
 		#print("Out_value: ",fr_regular)
 		regErrorGlobalRegular = 0
 		regErrorGlobalRegular = pow(sum(pow(real_out_vals - fr_regular,2))/len(out_mesh),0.5)
@@ -566,9 +566,9 @@ for i in range(0,singlePointTestAll):
 		#print("Time for Global regular solve: ", end-start)
 		#start = time.time()
 		#print("Starting Global Regular LOOCV")
-		error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
+		#error_LOOCV = LOOCV(bf, in_mesh, in_vals, rescale = False)
 		loocvErrorGlobalRegular = 0
-		errorsLOOCV = error_LOOCV() 
+		#errorsLOOCV = error_LOOCV() 
 		for k in range(0,len(errorsLOOCV)):
 			loocvErrorGlobalRegular += pow(errorsLOOCV[k],2)
 		loocvErrorGlobalRegular = loocvErrorGlobalRegular/len(in_mesh)
