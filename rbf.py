@@ -3,7 +3,7 @@ import mesh
 
 import functools
 import numpy as np
-import scipy.sparse.linalg
+from scipy.sparse.linalg import cg
 import scipy.spatial
 from scipy.linalg import lu
 from scipy.linalg import svd
@@ -56,7 +56,52 @@ class RBF:
                 A[:,j] = self.basisfunction[j](dm[:,j])
         else:
             A = self.basisfunction(dm)
+           
+        #print("A original: ", A)
+        #for i in range(0,len(meshA)):
+        #  for j in range(0,len(meshB)):
+        #    if (dm[i,j] > 0.1):
+        #      A[i,j] = 0
+        #print("Non-zeros: ", np.count_nonzero(A))
 
+        return A
+
+    def eval_BF_Gaussian(self, meshA, meshB, shape_param):
+        """ Evaluates single BF or list of BFs on the meshes. """
+        if meshA.ndim == 1:
+            meshA = meshA[:, np.newaxis]
+        if meshB.ndim == 1:
+            meshB = meshB[:, np.newaxis]
+        dm = scipy.spatial.distance_matrix(meshA, meshB)
+        #print("dm: ", dm)
+        #print("dm: ", len(meshA))
+        #print("dm: ", len(meshB))
+        #print("dm: ", dm[1,0])
+        #print("shape param: ", shape_param)
+        
+        #if type(self.basisfunction) is list:
+        A = np.empty((len(meshA), len(meshB)))
+        #A = dm
+        shapeParam = np.empty((len(meshA), len(meshB)))
+        #A = self.basisfunction(dm,shapeParam)
+        for i in range(0,len(meshA)):
+          for j in range(0,len(meshB)):
+            #shapeParam[i,j] = shape_param[i]
+            #threshold = 4.55228/(shape_param[j])
+            threshold = 2.121320344/(shape_param[j])
+            #threshold = (shape_param[j])
+            if (dm[i,j] > threshold):
+              A[i,j] = 0
+            else:
+              A[i,j] = np.exp( - pow((1*shape_param[j] * dm[i,j]), 2))
+              if (A[i,j] < 0.000001):
+                  A[i,j] = 0
+              #p = dm[i,j]/shape_param[j]
+              #A[i,j] =  np.power(1-p, 8) * (32*np.power(p, 3) + 25*np.power(p, 2) + 8*p + 1)
+        #else:
+        
+        print("Non-zeros: ", np.count_nonzero(A))
+        #print("A: ", A)
         return A
 
     def polynomial(self, out_mesh):
@@ -173,7 +218,14 @@ class NoneConsistent(RBF):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         
         self.C = self.eval_BF(in_mesh, in_mesh)
-        self.gamma = np.linalg.solve(self.C, in_vals)
+        #self.gamma = np.linalg.solve(self.C, in_vals)
+        #self.Cinv = np.linalg.inv(self.C)
+        self.q, self.r = np.linalg.qr(self.C)
+        self.gamma = np.linalg.inv(self.r) @ (np.transpose(self.q) @ in_vals)
+        #self.gamma = self.Cinv @ in_vals
+        #print("Created inverse of C: ", self.Cinv)
+        #self.CinvQR = np.linalg.inv(self.r) @ np.transpose(self.q)
+        #print("Created QR inverse of C: ", self.CinvQR)
         
         self.rescaled = rescale
         if rescale:
@@ -182,30 +234,40 @@ class NoneConsistent(RBF):
 
     def __call__(self, out_mesh):
         A = self.eval_BF(out_mesh, self.in_mesh)
-        out_vals = A @ self.gamma
+        out_vals = A @ self.gamma 
+        error = []
+        for i in range(0,len(self.in_mesh)):
+            Cinv = np.linalg.inv(self.r) @ np.transpose(self.q)
+            error.append(self.gamma[i]/Cinv[i][i])
         if self.rescaled:
             out_vals = out_vals / (A @ self.gamma_rescaled)
-        return out_vals
+        return out_vals,error
 
 
-class NoneConsistent(RBF):
-    def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
+class NoneConsistentGaussian(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, shape_param, rescale = False):
         self.in_mesh, self.basisfunction = in_mesh, basisfunction
         
-        self.C = self.eval_BF(in_mesh, in_mesh)
-        self.gamma = np.linalg.solve(self.C, in_vals)
+        self.C = self.eval_BF_Gaussian(in_mesh, in_mesh, shape_param)
+        print("Condition number: ", np.linalg.cond(self.C, p='fro'))
+        #self.gamma = np.linalg.solve(self.C, in_vals)
+        self.Cinv = np.linalg.inv(self.C)
+        self.gamma = self.Cinv @ in_vals
         
         self.rescaled = rescale
         if rescale:
             self.gamma_rescaled = np.linalg.solve(self.C, np.ones_like(in_mesh))
 
 
-    def __call__(self, out_mesh):
-        A = self.eval_BF(out_mesh, self.in_mesh)
+    def __call__(self, out_mesh, shape_param):
+        A = self.eval_BF_Gaussian(out_mesh, self.in_mesh, shape_param)
         out_vals = A @ self.gamma
+        error = []
+        for i in range(0,len(self.in_mesh)):
+            error.append(self.gamma[i]/self.Cinv[i][i])
         if self.rescaled:
             out_vals = out_vals / (A @ self.gamma_rescaled)
-        return out_vals
+        return out_vals,error
 
 class AMLS(RBF):
     def __init__(self, basisfunction, in_mesh, in_vals, rescale = False):
@@ -261,7 +323,25 @@ class LOOCV(RBF):
         self.C = self.eval_BF(in_mesh, in_mesh)
         self.Cinv = np.linalg.inv(self.C)
         #print(self.Cinv)
-        self.gamma = np.linalg.solve(self.C, in_vals)
+        #self.gamma = np.linalg.solve(self.C, in_vals)
+        self.gamma = self.Cinv @ in_vals
+        
+        self.rescaled = rescale
+
+    def __call__(self):
+        error = []
+        for i in range(0,len(self.in_mesh)):
+          error.append(self.gamma[i]/self.Cinv[i][i])
+        return error
+
+class LOOCV_Adaptive(RBF):
+    def __init__(self, basisfunction, in_mesh, in_vals, shape_params, rescale = False):
+        self.in_mesh, self.basisfunction = in_mesh, basisfunction
+        
+        self.C = self.eval_BF_Gaussian(in_mesh, in_mesh, shape_params)
+        self.Cinv = np.linalg.inv(self.C)
+        #print(self.Cinv)
+        self.gamma = self.Cinv @ in_vals
         
         self.rescaled = rescale
 
